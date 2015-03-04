@@ -1,11 +1,13 @@
 package adapter
 
 import (
+	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
 )
 
 var (
@@ -28,8 +30,10 @@ func (a KubernetesAdapter) GetService(id string) (*pmxadapter.Service, *pmxadapt
 	return &pmxadapter.Service{}, nil
 }
 
-func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]*pmxadapter.Service, *pmxadapter.Error) {
-	for _, s := range services {
+func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+	deployments := make([]pmxadapter.ServiceDeployment, len(services))
+
+	for i, s := range services {
 		safeName := sanitizeServiceName(s.Name)
 
 		rcSpec := api.ReplicationController{
@@ -37,7 +41,7 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]*pm
 				Name: safeName,
 			},
 			Spec: api.ReplicationControllerSpec{
-				Replicas: 1,
+				Replicas: s.Deployment.Count,
 				Selector: map[string]string{"name": safeName},
 				Template: &api.PodTemplateSpec{
 					ObjectMeta: api.ObjectMeta{
@@ -61,16 +65,19 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]*pm
 			},
 		}
 
-		// TODO You need to do something with the returned ID. These return objects
-		// are wrong and just need to get fixed.
-		_, err := DefaultExecutor.CreateReplicationController(rcSpec)
+		id, actualState, err := DefaultExecutor.CreateReplicationController(rcSpec)
 		if err != nil {
-			services := make([]*pmxadapter.Service, 1)
-			return services, pmxadapter.NewError(500, err.Error())
+			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Code == http.StatusConflict {
+				return nil, pmxadapter.NewError(http.StatusConflict, err.Error())
+			}
+			return nil, pmxadapter.NewError(http.StatusInternalServerError, err.Error())
 		}
+
+		deployments[i].ID = id
+		deployments[i].ActualState = actualState
 	}
 
-	return services, nil
+	return deployments, nil
 }
 
 func sanitizeServiceName(n string) string {
