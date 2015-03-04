@@ -17,17 +17,28 @@ var (
 
 func init() {
 	// TODO Need to instantiate with the correct connection info?
-	DefaultExecutor = NewKubernetesExecutor("http://104.131.157.89:8080")
+	DefaultExecutor = NewKubernetesExecutor("http://107.170.250.226:8080")
 }
 
 type KubernetesAdapter struct{}
 
-func (a KubernetesAdapter) GetServices() ([]*pmxadapter.Service, *pmxadapter.Error) {
-	return make([]*pmxadapter.Service, 0), nil
+func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+	//List(selector labels.Selector) (*api.ReplicationControllerList, error)
+	return []pmxadapter.ServiceDeployment{}, nil
 }
 
-func (a KubernetesAdapter) GetService(id string) (*pmxadapter.Service, *pmxadapter.Error) {
-	return &pmxadapter.Service{}, nil
+func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+	id, actualState, err := DefaultExecutor.GetReplicationController(id)
+	if err != nil {
+		if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonNotFound {
+			return pmxadapter.ServiceDeployment{}, pmxadapter.NewError(http.StatusNotFound, err.Error())
+		}
+
+		pmxErr := pmxadapter.NewError(http.StatusInternalServerError, err.Error())
+		return pmxadapter.ServiceDeployment{}, pmxErr
+	}
+
+	return pmxadapter.ServiceDeployment{ID: id, ActualState: actualState}, nil
 }
 
 func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
@@ -67,7 +78,7 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 
 		id, actualState, err := DefaultExecutor.CreateReplicationController(rcSpec)
 		if err != nil {
-			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Code == http.StatusConflict {
+			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonAlreadyExists {
 				return nil, pmxadapter.NewError(http.StatusConflict, err.Error())
 			}
 			return nil, pmxadapter.NewError(http.StatusInternalServerError, err.Error())
