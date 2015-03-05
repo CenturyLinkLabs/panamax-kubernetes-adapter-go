@@ -23,8 +23,18 @@ func init() {
 type KubernetesAdapter struct{}
 
 func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
-	//List(selector labels.Selector) (*api.ReplicationControllerList, error)
-	return []pmxadapter.ServiceDeployment{}, nil
+	rcs, err := DefaultExecutor.GetReplicationControllers()
+	if err != nil {
+		pmxErr := pmxadapter.NewError(http.StatusInternalServerError, err.Error())
+		return []pmxadapter.ServiceDeployment{}, pmxErr
+	}
+
+	sds := make([]pmxadapter.ServiceDeployment, len(rcs))
+	for i, rc := range rcs {
+		sds[i].ID = rc.ObjectMeta.Name
+		sds[i].ActualState = statusFromReplicationController(rc)
+	}
+	return sds, nil
 }
 
 func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, *pmxadapter.Error) {

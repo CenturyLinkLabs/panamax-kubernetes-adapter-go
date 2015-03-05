@@ -12,10 +12,19 @@ import (
 )
 
 type TestExecutor struct {
-	RCs             []api.ReplicationController
-	CreatedSpec     api.ReplicationController
-	CreationError   error
-	GetServiceError error
+	RCs              []api.ReplicationController
+	CreatedSpec      api.ReplicationController
+	CreationError    error
+	GetServicesError error
+	GetServiceError  error
+}
+
+func (e *TestExecutor) GetReplicationControllers() ([]api.ReplicationController, error) {
+	if e.GetServicesError != nil {
+		return []api.ReplicationController{}, e.GetServicesError
+	}
+
+	return e.RCs, nil
 }
 
 func (e *TestExecutor) GetReplicationController(id string) (api.ReplicationController, error) {
@@ -47,6 +56,7 @@ var (
 	adapter  KubernetesAdapter
 	te       TestExecutor
 	services []*pmxadapter.Service
+	rcs      []api.ReplicationController
 )
 
 func setup() {
@@ -59,7 +69,7 @@ func TestSatisfiesAdapterInterface(t *testing.T) {
 	assert.Implements(t, (*pmxadapter.PanamaxAdapter)(nil), adapter)
 }
 
-func TestSuccessfulGetService(t *testing.T) {
+func setupRCs() {
 	setup()
 	rc := api.ReplicationController{
 		ObjectMeta: api.ObjectMeta{Name: "test-service"},
@@ -67,6 +77,31 @@ func TestSuccessfulGetService(t *testing.T) {
 		Status:     api.ReplicationControllerStatus{Replicas: 0},
 	}
 	te.RCs = []api.ReplicationController{rc}
+}
+
+func TestSuccessfulGetServices(t *testing.T) {
+	setupRCs()
+	sds, pmxErr := adapter.GetServices()
+	assert.Nil(t, pmxErr)
+	if assert.Len(t, sds, 1) {
+		assert.Equal(t, "test-service", sds[0].ID)
+		assert.Equal(t, "pending", sds[0].ActualState)
+	}
+}
+
+func TestErroredGetServices(t *testing.T) {
+	setup()
+	te.GetServicesError = errors.New("test error")
+	sds, pmxErr := adapter.GetServices()
+	assert.Empty(t, sds)
+	if assert.NotNil(t, pmxErr) {
+		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
+		assert.Equal(t, "test error", pmxErr.Message)
+	}
+}
+
+func TestSuccessfulGetService(t *testing.T) {
+	setupRCs()
 	sd, pmxErr := adapter.GetService("test-service")
 
 	assert.Nil(t, pmxErr)
