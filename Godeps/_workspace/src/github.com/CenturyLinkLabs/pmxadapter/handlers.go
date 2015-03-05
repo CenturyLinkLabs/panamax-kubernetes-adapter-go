@@ -24,7 +24,7 @@ func sanitizeErrorCode(code int) int {
 func getServices(e encoder, adapter PanamaxAdapter) (int, string) {
 	data, err := adapter.GetServices()
 	if err != nil {
-		return sanitizeErrorCode(err.Code), err.Message
+		return handlePotentialPanamaxError(err)
 	}
 
 	return http.StatusOK, e.Encode(data)
@@ -42,7 +42,7 @@ func getService(e encoder, adapter PanamaxAdapter, params martini.Params) (int, 
 
 	data, err := adapter.GetService(id)
 	if err != nil {
-		return sanitizeErrorCode(err.Code), err.Message
+		return handlePotentialPanamaxError(err)
 	}
 
 	return http.StatusOK, e.Encode(data)
@@ -62,9 +62,9 @@ func createServices(e encoder, adapter PanamaxAdapter, r *http.Request) (int, st
 		return http.StatusInternalServerError, err.Error()
 	}
 
-	res, pmxErr := adapter.CreateServices(services)
-	if pmxErr != nil {
-		return sanitizeErrorCode(pmxErr.Code), pmxErr.Message
+	res, err := adapter.CreateServices(services)
+	if err != nil {
+		return handlePotentialPanamaxError(err)
 	}
 
 	return http.StatusCreated, e.Encode(res)
@@ -87,7 +87,7 @@ func deleteService(adapter PanamaxAdapter, params martini.Params) (int, string) 
 
 	err := adapter.DestroyService(id)
 	if err != nil {
-		return sanitizeErrorCode(err.Code), err.Message
+		return handlePotentialPanamaxError(err)
 	}
 
 	return http.StatusNoContent, ""
@@ -100,4 +100,16 @@ func getMetadata(e encoder, adapter PanamaxAdapter) (int, string) {
 	data := adapter.GetMetadata()
 
 	return http.StatusOK, e.Encode(&data)
+}
+
+func handlePotentialPanamaxError(err error) (int, string) {
+	code := http.StatusInternalServerError
+
+	if err != nil {
+		if pmxErr, ok := err.(*Error); ok {
+			code = sanitizeErrorCode(pmxErr.Code)
+		}
+	}
+
+	return code, err.Error()
 }

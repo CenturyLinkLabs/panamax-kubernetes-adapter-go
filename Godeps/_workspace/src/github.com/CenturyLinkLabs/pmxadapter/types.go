@@ -2,15 +2,16 @@ package pmxadapter
 
 import (
 	"fmt"
+	"net/http"
 )
 
 // PanamaxAdapter encapulates the CRUD operations for Services.
 // These methods must be implemented to fulfill the adapter contract.
 type PanamaxAdapter interface {
-	GetServices() ([]ServiceDeployment, *Error)
-	GetService(string) (ServiceDeployment, *Error)
-	CreateServices([]*Service) ([]ServiceDeployment, *Error)
-	DestroyService(string) *Error
+	GetServices() ([]ServiceDeployment, error)
+	GetService(string) (ServiceDeployment, error)
+	CreateServices([]*Service) ([]ServiceDeployment, error)
+	DestroyService(string) error
 	GetMetadata() Metadata
 }
 
@@ -93,8 +94,16 @@ func (e *Error) Error() string {
 }
 
 // NewError creates an error instance with the specified code and message.
-func NewError(code int, msg string) *Error {
+func NewError(code int, msg string) error {
 	return &Error{
 		Code:    code,
 		Message: msg}
+}
+
+func NewAlreadyExistsError(msg string) error {
+	return NewError(http.StatusConflict, msg)
+}
+
+func NewNotFoundError(msg string) error {
+	return NewError(http.StatusNotFound, msg)
 }

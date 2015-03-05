@@ -11,19 +11,19 @@ import (
 var testEncoder = new(jsonEncoder)
 
 type MockAdapter struct {
-	returnError *Error
+	returnError error
 }
 
-func (e MockAdapter) GetServices() ([]ServiceDeployment, *Error) {
+func (e MockAdapter) GetServices() ([]ServiceDeployment, error) {
 	return nil, e.returnError
 }
-func (e MockAdapter) GetService(string) (ServiceDeployment, *Error) {
+func (e MockAdapter) GetService(string) (ServiceDeployment, error) {
 	return ServiceDeployment{}, e.returnError
 }
-func (e MockAdapter) CreateServices([]*Service) ([]ServiceDeployment, *Error) {
+func (e MockAdapter) CreateServices([]*Service) ([]ServiceDeployment, error) {
 	return nil, e.returnError
 }
-func (e MockAdapter) DestroyService(string) *Error {
+func (e MockAdapter) DestroyService(string) error {
 	return e.returnError
 }
 func (e MockAdapter) GetMetadata() Metadata {
@@ -115,7 +115,7 @@ func TestGetServiceNotFound(t *testing.T) {
 	code, body := getService(testEncoder, adapter, params)
 
 	assert.Equal(t, http.StatusNotFound, code)
-	assert.Equal(t, "service not found", body)
+	assert.Equal(t, "Error(404): service not found", body)
 }
 
 //func TestCreateServicesError(t *testing.T) {
@@ -135,5 +135,5 @@ func TestDeleteServiceNotFound(t *testing.T) {
 	code, body := deleteService(adapter, params)
 
 	assert.Equal(t, http.StatusNotFound, code)
-	assert.Equal(t, "service not found", body)
+	assert.Equal(t, "Error(404): service not found", body)
 }

@@ -12,7 +12,7 @@
 		},
 		{
 			"ImportPath": "github.com/CenturyLinkLabs/pmxadapter",
-			"Rev": "2b9dccd1b71a87d63fd31e613c50673ffe0e9aa6"
+			"Rev": "455f4e4a65889e888ac50f0562befe5409845a9a"
 		},
 		{
 			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/api",

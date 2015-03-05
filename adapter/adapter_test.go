@@ -96,8 +96,8 @@ func setupRCs() {
 
 func TestSuccessfulGetServices(t *testing.T) {
 	setupRCs()
-	sds, pmxErr := adapter.GetServices()
-	assert.Nil(t, pmxErr)
+	sds, err := adapter.GetServices()
+	assert.NoError(t, err)
 	if assert.Len(t, sds, 1) {
 		assert.Equal(t, "test-service", sds[0].ID)
 		assert.Equal(t, "pending", sds[0].ActualState)
@@ -107,30 +107,28 @@ func TestSuccessfulGetServices(t *testing.T) {
 func TestErroredGetServices(t *testing.T) {
 	setup()
 	te.GetServicesError = errors.New("test error")
-	sds, pmxErr := adapter.GetServices()
+	sds, err := adapter.GetServices()
 	assert.Empty(t, sds)
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
-		assert.Equal(t, "test error", pmxErr.Message)
-	}
+	assert.EqualError(t, err, "test error")
 }
 
 func TestSuccessfulGetService(t *testing.T) {
 	setupRCs()
-	sd, pmxErr := adapter.GetService("test-service")
+	sd, err := adapter.GetService("test-service")
 
-	assert.Nil(t, pmxErr)
+	assert.NoError(t, err)
 	assert.Equal(t, pmxadapter.ServiceDeployment{ID: "test-service", ActualState: "pending"}, sd)
 }
 
 func TestErroredNotFoundGetService(t *testing.T) {
 	setup()
 	te.GetServiceError = kerrors.NewNotFound("thing", "name")
-	sd, pmxErr := adapter.GetService("UnknownID")
+	sd, err := adapter.GetService("UnknownID")
 
 	assert.Equal(t, pmxadapter.ServiceDeployment{}, sd)
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, `thing "name" not found`, pmxErr.Message)
+	pmxErr, ok := err.(*pmxadapter.Error)
+	if assert.Error(t, pmxErr) && assert.True(t, ok) {
+		assert.Equal(t, te.GetServiceError.Error(), pmxErr.Message)
 		assert.Equal(t, http.StatusNotFound, pmxErr.Code)
 	}
 }
@@ -138,13 +136,10 @@ func TestErroredNotFoundGetService(t *testing.T) {
 func TestErroredGetService(t *testing.T) {
 	setup()
 	te.GetServiceError = errors.New("test error")
-	sd, pmxErr := adapter.GetService("TestID")
+	sd, err := adapter.GetService("TestID")
 
 	assert.Equal(t, pmxadapter.ServiceDeployment{}, sd)
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, "test error", pmxErr.Message)
-		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
-	}
+	assert.EqualError(t, err, "test error")
 }
 
 func servicesSetup() {
@@ -163,9 +158,9 @@ func servicesSetup() {
 
 func TestSuccessfulCreateServices(t *testing.T) {
 	servicesSetup()
-	sd, pmxErr := adapter.CreateServices(services)
+	sd, err := adapter.CreateServices(services)
 
-	assert.Nil(t, pmxErr)
+	assert.NoError(t, err)
 	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
 	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
 	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
@@ -196,42 +191,41 @@ func TestSuccessfulCreateServices(t *testing.T) {
 func TestErroredCreateServices(t *testing.T) {
 	servicesSetup()
 	te.CreationError = errors.New("test error")
-	sd, pmxErr := adapter.CreateServices(services)
+	sd, err := adapter.CreateServices(services)
 
 	assert.Len(t, sd, 0)
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
-		assert.Equal(t, "test error", pmxErr.Message)
-	}
+	assert.EqualError(t, err, "test error")
 }
 
 func TestErroredConflictedCreateServices(t *testing.T) {
 	servicesSetup()
 	te.CreationError = kerrors.NewAlreadyExists("thing", "name")
-	sd, pmxErr := adapter.CreateServices(services)
+	sd, err := adapter.CreateServices(services)
 
 	assert.Len(t, sd, 0)
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, http.StatusConflict, pmxErr.Code)
+	pmxErr, ok := err.(*pmxadapter.Error)
+	if assert.Error(t, pmxErr) && assert.True(t, ok) {
 		assert.Equal(t, te.CreationError.Error(), pmxErr.Message)
+		assert.Equal(t, http.StatusConflict, pmxErr.Code)
 	}
 }
 
 func TestSuccessfulDestroyService(t *testing.T) {
 	setupRCs()
-	pmxErr := adapter.DestroyService("test-service")
+	err := adapter.DestroyService("test-service")
 
-	assert.Nil(t, pmxErr)
+	assert.NoError(t, err)
 	assert.Equal(t, "test-service", te.DestroyedServiceID)
 }
 
 func TestErroredNotFoundDestroyService(t *testing.T) {
 	setup()
 	te.DeletionError = kerrors.NewNotFound("thing", "name")
-	pmxErr := adapter.DestroyService("test-service")
+	err := adapter.DestroyService("test-service")
 
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, `thing "name" not found`, pmxErr.Message)
+	pmxErr, ok := err.(*pmxadapter.Error)
+	if assert.Error(t, pmxErr) && assert.True(t, ok) {
+		assert.Equal(t, te.DeletionError.Error(), pmxErr.Message)
 		assert.Equal(t, http.StatusNotFound, pmxErr.Code)
 	}
 }
@@ -239,12 +233,9 @@ func TestErroredNotFoundDestroyService(t *testing.T) {
 func TestErroredDestroyService(t *testing.T) {
 	setup()
 	te.DeletionError = errors.New("test error")
-	pmxErr := adapter.DestroyService("test-service")
+	err := adapter.DestroyService("test-service")
 
-	if assert.NotNil(t, pmxErr) {
-		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
-		assert.Equal(t, "test error", pmxErr.Message)
-	}
+	assert.EqualError(t, err, "test error")
 }
 
 func TestSuccessfulGetMetadata(t *testing.T) {

@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -37,11 +36,10 @@ func init() {
 
 type KubernetesAdapter struct{}
 
-func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, error) {
 	rcs, err := DefaultExecutor.GetReplicationControllers()
 	if err != nil {
-		pmxErr := pmxadapter.NewError(http.StatusInternalServerError, err.Error())
-		return []pmxadapter.ServiceDeployment{}, pmxErr
+		return []pmxadapter.ServiceDeployment{}, err
 	}
 
 	sds := make([]pmxadapter.ServiceDeployment, len(rcs))
@@ -52,15 +50,14 @@ func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, *pmxad
 	return sds, nil
 }
 
-func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, error) {
 	rc, err := DefaultExecutor.GetReplicationController(id)
 	if err != nil {
 		if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonNotFound {
-			return pmxadapter.ServiceDeployment{}, pmxadapter.NewError(http.StatusNotFound, err.Error())
+			return pmxadapter.ServiceDeployment{}, pmxadapter.NewNotFoundError(err.Error())
 		}
 
-		pmxErr := pmxadapter.NewError(http.StatusInternalServerError, err.Error())
-		return pmxadapter.ServiceDeployment{}, pmxErr
+		return pmxadapter.ServiceDeployment{}, err
 	}
 
 	sd := pmxadapter.ServiceDeployment{
@@ -70,7 +67,7 @@ func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, 
 	return sd, nil
 }
 
-func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
+func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, error) {
 	deployments := make([]pmxadapter.ServiceDeployment, len(services))
 
 	for i, s := range services {
@@ -78,9 +75,9 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 		rc, err := DefaultExecutor.CreateReplicationController(rcSpec)
 		if err != nil {
 			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonAlreadyExists {
-				return nil, pmxadapter.NewError(http.StatusConflict, err.Error())
+				return nil, pmxadapter.NewAlreadyExistsError(err.Error())
 			}
-			return nil, pmxadapter.NewError(http.StatusInternalServerError, err.Error())
+			return nil, err
 		}
 
 		deployments[i].ID = rc.ObjectMeta.Name
@@ -90,14 +87,14 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 	return deployments, nil
 }
 
-func (a KubernetesAdapter) DestroyService(id string) *pmxadapter.Error {
+func (a KubernetesAdapter) DestroyService(id string) error {
 	err := DefaultExecutor.DeleteReplicationController(id)
 	if err != nil {
 		if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonNotFound {
-			return pmxadapter.NewError(http.StatusNotFound, err.Error())
+			return pmxadapter.NewNotFoundError(err.Error())
 		}
 
-		return pmxadapter.NewError(http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	return nil
