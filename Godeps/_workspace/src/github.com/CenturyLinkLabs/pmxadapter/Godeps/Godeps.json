@@ -1,0 +1,20 @@
+{
+	"ImportPath": "github.com/CenturyLinkLabs/pmxadapter",
+	"GoVersion": "go1.3.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/codegangsta/inject",
+			"Comment": "v1.0-rc1-10-g33e0aa1",
+			"Rev": "33e0aa1cb7c019ccc3fbe049a8262a6403d30504"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/martini",
+			"Comment": "v1.0-107-g627d985",
+			"Rev": "627d985ef9f202fbfc53531f1da96ef92ae3fb3e"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Rev": "33a31e5dbed8302d5ab7e6d12b416e95c2c4ebc0"
+		}
+	]
+}

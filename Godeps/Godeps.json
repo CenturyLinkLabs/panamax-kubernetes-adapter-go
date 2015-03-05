@@ -1,0 +1,120 @@
+{
+	"ImportPath": "github.com/CenturyLinkLabs/panamax-kubernetes-adapter",
+	"GoVersion": "go1.4",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go-uuid/uuid",
+			"Comment": "null-12",
+			"Rev": "7dda39b2e7d5e265014674c5af696ba4186679e9"
+		},
+		{
+			"ImportPath": "github.com/CenturyLinkLabs/pmxadapter",
+			"Rev": "2b9dccd1b71a87d63fd31e613c50673ffe0e9aa6"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/api",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/auth/user",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/client",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/conversion",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/labels",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/probe",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/runtime",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/types",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/util",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/version",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/GoogleCloudPlatform/kubernetes/pkg/watch",
+			"Comment": "v0.11.0-502-g6c5b390",
+			"Rev": "6c5b390160856cd8334043344ef6e08568b0a5c9"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/inject",
+			"Comment": "v1.0-rc1-4-g4b81725",
+			"Rev": "4b8172520a03fa190f427bbd284db01b459bfce7"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/martini",
+			"Comment": "v1.0-85-gbbd489b",
+			"Rev": "bbd489b35fd7eac9aaf442e5671ab21cdd972926"
+		},
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Rev": "1aaf839fb07e099361e445273993ccd9adc21b07"
+		},
+		{
+			"ImportPath": "github.com/ghodss/yaml",
+			"Rev": "588cb435e59ee8b6c2795482887755841ad67207"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.com/google/cadvisor/info",
+			"Comment": "0.6.2",
+			"Rev": "89088df70eca64cf9d6b9a23a3d2bc21a30916d6"
+		},
+		{
+			"ImportPath": "github.com/spf13/pflag",
+			"Rev": "370c3171201099fa6b466db45c8a032cbce33d8d"
+		},
+		{
+			"ImportPath": "github.com/stretchr/testify/assert",
+			"Rev": "e4ec8152c15fc46bd5056ce65997a07c7d415325"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "cbcac7bb8415db9b6cb4d1ebab1dc9afbd688b97"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "d466437aa4adc35830964cffc5b5f262c63ddcb4"
+		},
+		{
+			"ImportPath": "speter.net/go/exp/math/dec/inf",
+			"Rev": "42ca6cd68aa922bc3f32f1e056e61b65945d9ad7"
+		}
+	]
+}
