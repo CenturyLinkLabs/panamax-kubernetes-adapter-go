@@ -150,7 +150,14 @@ func TestErroredGetService(t *testing.T) {
 func servicesSetup() {
 	setup()
 	services = []*pmxadapter.Service{
-		{Name: "Test Service", Source: "redis", Deployment: pmxadapter.Deployment{Count: 1}},
+		{
+			Name:        "Test Service",
+			Source:      "redis",
+			Command:     "redis-server",
+			Environment: []*pmxadapter.Environment{{Variable: "VAR_NAME", Value: "Var Value"}},
+			Ports:       []*pmxadapter.Port{{HostPort: 31981, ContainerPort: 12345, Protocol: "TCP"}},
+			Deployment:  pmxadapter.Deployment{Count: 1},
+		},
 	}
 }
 
@@ -160,11 +167,25 @@ func TestSuccessfulCreateServices(t *testing.T) {
 
 	assert.Nil(t, pmxErr)
 	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
+	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
 	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
 	cs := te.CreatedSpec.Spec.Template.Spec.Containers
 	if assert.Len(t, cs, 1) {
-		assert.Equal(t, "test-service", cs[0].Name)
-		assert.Equal(t, "redis", cs[0].Image)
+		c := cs[0]
+		assert.Equal(t, "test-service", c.Name)
+		assert.Equal(t, "redis", c.Image)
+		if assert.Len(t, c.Command, 1) {
+			assert.Equal(t, "redis-server", c.Command[0])
+		}
+		if assert.Len(t, c.Env, 1) {
+			assert.Equal(t, "VAR_NAME", c.Env[0].Name)
+			assert.Equal(t, "Var Value", c.Env[0].Value)
+		}
+		if assert.Len(t, c.Ports, 1) {
+			assert.Equal(t, 31981, c.Ports[0].HostPort)
+			assert.Equal(t, 12345, c.Ports[0].ContainerPort)
+			assert.Equal(t, "TCP", c.Ports[0].Protocol)
+		}
 	}
 	if assert.Len(t, sd, 1) {
 		assert.Equal(t, "test-service", sd[0].ID)

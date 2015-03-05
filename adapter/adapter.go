@@ -74,6 +74,19 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 	deployments := make([]pmxadapter.ServiceDeployment, len(services))
 
 	for i, s := range services {
+		ports := make([]api.Port, len(s.Ports))
+		for i, p := range s.Ports {
+			ports[i].HostPort = int(p.HostPort)
+			ports[i].ContainerPort = int(p.ContainerPort)
+			ports[i].Protocol = api.Protocol(p.Protocol)
+		}
+
+		env := make([]api.EnvVar, len(s.Environment))
+		for i, e := range s.Environment {
+			env[i].Name = e.Variable
+			env[i].Value = e.Value
+		}
+
 		safeName := sanitizeServiceName(s.Name)
 
 		rcSpec := api.ReplicationController{
@@ -90,14 +103,11 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 					Spec: api.PodSpec{
 						Containers: []api.Container{
 							{
-								// You're still missing a huge number of these things, from
-								// Brian's 'manifest'.
-								//container[:command] = command if command
-								//container[:ports] = port_mapping if ports.any?
-								//container[:env] = environment_mapping if environment.any?
 								Name:    safeName,
 								Image:   s.Source,
 								Command: []string{s.Command},
+								Ports:   ports,
+								Env:     env,
 							},
 						},
 					},
