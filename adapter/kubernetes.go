@@ -13,6 +13,7 @@ type Executor interface {
 	GetReplicationController(string) (api.ReplicationController, error)
 	CreateReplicationController(api.ReplicationController) (api.ReplicationController, error)
 	DeleteReplicationController(string) error
+	IsHealthy() bool
 }
 
 type KubernetesExecutor struct {
@@ -88,4 +89,18 @@ func (k KubernetesExecutor) DeleteReplicationController(id string) error {
 	}
 
 	return nil
+}
+
+func (k KubernetesExecutor) IsHealthy() bool {
+	// TODO hello duplication. Figure out client instantiation.
+	client, err := client.New(&client.Config{Host: k.APIEndpoint})
+	if err != nil {
+		return false
+	}
+
+	if _, err := client.Nodes().List(); err != nil {
+		return false
+	}
+
+	return true
 }

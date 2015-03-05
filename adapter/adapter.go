@@ -10,6 +10,11 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
 )
 
+const (
+	metadataType    = "Kubernetes"
+	metadataVersion = "0.1"
+)
+
 var (
 	DefaultExecutor       Executor
 	illegalNameCharacters = regexp.MustCompile(`[\W_]+`)
@@ -119,7 +124,11 @@ func (a KubernetesAdapter) DestroyService(id string) *pmxadapter.Error {
 }
 
 func (a KubernetesAdapter) GetMetadata() pmxadapter.Metadata {
-	return pmxadapter.Metadata{Type: "Sample", Version: "0.1"}
+	return pmxadapter.Metadata{
+		Version:   metadataVersion,
+		Type:      metadataType,
+		IsHealthy: DefaultExecutor.IsHealthy(),
+	}
 }
 
 func sanitizeServiceName(n string) string {

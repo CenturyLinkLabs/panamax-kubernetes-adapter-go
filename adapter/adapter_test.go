@@ -19,6 +19,7 @@ type TestExecutor struct {
 	GetServiceError    error
 	DeletionError      error
 	DestroyedServiceID string
+	HealthCheckResult  bool
 }
 
 func (e *TestExecutor) GetReplicationControllers() ([]api.ReplicationController, error) {
@@ -60,6 +61,10 @@ func (e *TestExecutor) DeleteReplicationController(id string) error {
 		return e.DeletionError
 	}
 	return nil
+}
+
+func (e *TestExecutor) IsHealthy() bool {
+	return e.HealthCheckResult
 }
 
 var (
@@ -218,6 +223,22 @@ func TestErroredDestroyService(t *testing.T) {
 	if assert.NotNil(t, pmxErr) {
 		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
 		assert.Equal(t, "test error", pmxErr.Message)
+	}
+}
+
+func TestSuccessfulGetMetadata(t *testing.T) {
+	setup()
+	m := adapter.GetMetadata()
+	if assert.NotNil(t, m) {
+		assert.Equal(t, metadataType, m.Type)
+		assert.Equal(t, metadataVersion, m.Version)
+		assert.False(t, m.IsHealthy)
+	}
+
+	te.HealthCheckResult = true
+	m = adapter.GetMetadata()
+	if assert.NotNil(t, m) {
+		assert.True(t, m.IsHealthy)
 	}
 }
 
