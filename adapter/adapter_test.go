@@ -12,32 +12,35 @@ import (
 )
 
 type TestExecutor struct {
-	Deployments     []pmxadapter.ServiceDeployment
-	Spec            api.ReplicationController
+	RCs             []api.ReplicationController
+	CreatedSpec     api.ReplicationController
 	CreationError   error
 	GetServiceError error
 }
 
-func (e *TestExecutor) GetReplicationController(id string) (string, string, error) {
+func (e *TestExecutor) GetReplicationController(id string) (api.ReplicationController, error) {
 	if e.GetServiceError != nil {
-		return "", "", e.GetServiceError
+		return api.ReplicationController{}, e.GetServiceError
 	}
 
-	for _, d := range e.Deployments {
-		if d.ID == id {
-			return d.ID, d.ActualState, nil
+	for _, rc := range e.RCs {
+		if rc.ObjectMeta.Name == id {
+			return rc, nil
 		}
 	}
-	return "", "", nil
+
+	return api.ReplicationController{}, errors.New("Should never get here")
 }
 
-func (e *TestExecutor) CreateReplicationController(spec api.ReplicationController) (string, string, error) {
-	e.Spec = spec
+func (e *TestExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
+	e.CreatedSpec = spec
 
 	if e.CreationError != nil {
-		return "", "", e.CreationError
+		return api.ReplicationController{}, e.CreationError
 	}
-	return "TestID", "TestStatus", nil
+
+	spec.Status.Replicas = 0
+	return spec, nil
 }
 
 var (
@@ -52,25 +55,22 @@ func setup() {
 	DefaultExecutor = &te
 }
 
-func servicesSetup() {
-	setup()
-	services = []*pmxadapter.Service{
-		{Name: "Test Service", Source: "redis", Deployment: pmxadapter.Deployment{Count: 1}},
-	}
-}
-
 func TestSatisfiesAdapterInterface(t *testing.T) {
 	assert.Implements(t, (*pmxadapter.PanamaxAdapter)(nil), adapter)
 }
 
 func TestSuccessfulGetService(t *testing.T) {
 	setup()
-	expected := pmxadapter.ServiceDeployment{ID: "TestID", ActualState: "Testing"}
-	te.Deployments = []pmxadapter.ServiceDeployment{expected}
-	sd, pmxErr := adapter.GetService("TestID")
+	rc := api.ReplicationController{
+		ObjectMeta: api.ObjectMeta{Name: "test-service"},
+		Spec:       api.ReplicationControllerSpec{Replicas: 1},
+		Status:     api.ReplicationControllerStatus{Replicas: 0},
+	}
+	te.RCs = []api.ReplicationController{rc}
+	sd, pmxErr := adapter.GetService("test-service")
 
 	assert.Nil(t, pmxErr)
-	assert.Equal(t, expected, sd)
+	assert.Equal(t, pmxadapter.ServiceDeployment{ID: "test-service", ActualState: "pending"}, sd)
 }
 
 func TestErroredNotFoundGetService(t *testing.T) {
@@ -97,21 +97,28 @@ func TestErroredGetService(t *testing.T) {
 	}
 }
 
+func servicesSetup() {
+	setup()
+	services = []*pmxadapter.Service{
+		{Name: "Test Service", Source: "redis", Deployment: pmxadapter.Deployment{Count: 1}},
+	}
+}
+
 func TestSuccessfulCreateServices(t *testing.T) {
 	servicesSetup()
 	sd, pmxErr := adapter.CreateServices(services)
 
 	assert.Nil(t, pmxErr)
-	assert.Equal(t, "test-service", te.Spec.ObjectMeta.Name)
-	assert.Equal(t, 1, te.Spec.Spec.Replicas)
-	cs := te.Spec.Spec.Template.Spec.Containers
+	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
+	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
+	cs := te.CreatedSpec.Spec.Template.Spec.Containers
 	if assert.Len(t, cs, 1) {
 		assert.Equal(t, "test-service", cs[0].Name)
 		assert.Equal(t, "redis", cs[0].Image)
 	}
 	if assert.Len(t, sd, 1) {
-		assert.Equal(t, "TestID", sd[0].ID)
-		assert.Equal(t, "TestStatus", sd[0].ActualState)
+		assert.Equal(t, "test-service", sd[0].ID)
+		assert.Equal(t, "pending", sd[0].ActualState)
 	}
 }
 
@@ -145,4 +152,17 @@ func TestSanitizeServiceName(t *testing.T) {
 	assert.Equal(t, "test-service", sanitizeServiceName("Test Service"))
 	assert.Equal(t, "test-service", sanitizeServiceName("Test_Service"))
 	assert.Equal(t, "test-service", sanitizeServiceName("Test _ \n  Service"))
+}
+
+func TestStatusFromReplicationController(t *testing.T) {
+	rc := api.ReplicationController{}
+	rc.Spec.Replicas = 2
+	rc.Status.Replicas = 0
+	assert.Equal(t, "pending", statusFromReplicationController(rc))
+	rc.Status.Replicas = 1
+	assert.Equal(t, "pending", statusFromReplicationController(rc))
+	rc.Status.Replicas = 2
+	assert.Equal(t, "running", statusFromReplicationController(rc))
+	rc.Status.Replicas = 3
+	assert.Equal(t, "unknown", statusFromReplicationController(rc))
 }

@@ -28,7 +28,7 @@ func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, *pmxad
 }
 
 func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, *pmxadapter.Error) {
-	id, actualState, err := DefaultExecutor.GetReplicationController(id)
+	rc, err := DefaultExecutor.GetReplicationController(id)
 	if err != nil {
 		if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonNotFound {
 			return pmxadapter.ServiceDeployment{}, pmxadapter.NewError(http.StatusNotFound, err.Error())
@@ -38,7 +38,11 @@ func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, 
 		return pmxadapter.ServiceDeployment{}, pmxErr
 	}
 
-	return pmxadapter.ServiceDeployment{ID: id, ActualState: actualState}, nil
+	sd := pmxadapter.ServiceDeployment{
+		ID:          rc.ObjectMeta.Name,
+		ActualState: statusFromReplicationController(rc),
+	}
+	return sd, nil
 }
 
 func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, *pmxadapter.Error) {
@@ -76,7 +80,7 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 			},
 		}
 
-		id, actualState, err := DefaultExecutor.CreateReplicationController(rcSpec)
+		rc, err := DefaultExecutor.CreateReplicationController(rcSpec)
 		if err != nil {
 			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonAlreadyExists {
 				return nil, pmxadapter.NewError(http.StatusConflict, err.Error())
@@ -84,16 +88,11 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 			return nil, pmxadapter.NewError(http.StatusInternalServerError, err.Error())
 		}
 
-		deployments[i].ID = id
-		deployments[i].ActualState = actualState
+		deployments[i].ID = rc.ObjectMeta.Name
+		deployments[i].ActualState = statusFromReplicationController(rc)
 	}
 
 	return deployments, nil
-}
-
-func sanitizeServiceName(n string) string {
-	s := illegalNameCharacters.ReplaceAllString(n, "-")
-	return strings.ToLower(s)
 }
 
 func (a KubernetesAdapter) UpdateService(s *pmxadapter.Service) *pmxadapter.Error {
@@ -106,4 +105,21 @@ func (a KubernetesAdapter) DestroyService(id string) *pmxadapter.Error {
 
 func (a KubernetesAdapter) GetMetadata() pmxadapter.Metadata {
 	return pmxadapter.Metadata{Type: "Sample", Version: "0.1"}
+}
+
+func sanitizeServiceName(n string) string {
+	s := illegalNameCharacters.ReplaceAllString(n, "-")
+	return strings.ToLower(s)
+}
+
+func statusFromReplicationController(rc api.ReplicationController) string {
+	desired := rc.Spec.Replicas
+	actual := rc.Status.Replicas
+
+	if actual < desired {
+		return "pending"
+	} else if desired == actual {
+		return "running"
+	}
+	return "unknown"
 }

@@ -8,8 +8,8 @@ import (
 const namespace = "default"
 
 type Executor interface {
-	GetReplicationController(string) (string, string, error)
-	CreateReplicationController(api.ReplicationController) (string, string, error)
+	GetReplicationController(string) (api.ReplicationController, error)
+	CreateReplicationController(api.ReplicationController) (api.ReplicationController, error)
 }
 
 type KubernetesExecutor struct {
@@ -20,36 +20,30 @@ func NewKubernetesExecutor(url string) Executor {
 	return KubernetesExecutor{APIEndpoint: url}
 }
 
-func (k KubernetesExecutor) GetReplicationController(id string) (string, string, error) {
+func (k KubernetesExecutor) GetReplicationController(id string) (api.ReplicationController, error) {
 	// TODO hello duplication. Figure out client instantiation.
 	client, err := client.New(&client.Config{Host: k.APIEndpoint})
 	if err != nil {
-		return "", "", err
+		return api.ReplicationController{}, err
 	}
 
 	rc, err := client.ReplicationControllers(namespace).Get(id)
 	if err != nil {
-		return "", "", err
+		return api.ReplicationController{}, err
 	}
 
-	status := "pending"
-	if rc.Spec.Replicas == rc.Status.Replicas {
-		status = "running"
-	}
-
-	return rc.ObjectMeta.Name, status, nil
+	return *rc, nil
 }
 
-func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (string, string, error) {
+func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
 	client, err := client.New(&client.Config{Host: k.APIEndpoint})
 	if err != nil {
-		return "", "", err
+		return api.ReplicationController{}, err
 	}
-	_, err = client.ReplicationControllers(namespace).Create(&spec)
+	rc, err := client.ReplicationControllers(namespace).Create(&spec)
 	if err != nil {
-		return "", "", err
+		return api.ReplicationController{}, err
 	}
 
-	id := spec.ObjectMeta.Name
-	return id, "pending", nil
+	return *rc, nil
 }
