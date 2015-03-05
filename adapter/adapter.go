@@ -74,47 +74,7 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 	deployments := make([]pmxadapter.ServiceDeployment, len(services))
 
 	for i, s := range services {
-		ports := make([]api.Port, len(s.Ports))
-		for i, p := range s.Ports {
-			ports[i].HostPort = int(p.HostPort)
-			ports[i].ContainerPort = int(p.ContainerPort)
-			ports[i].Protocol = api.Protocol(p.Protocol)
-		}
-
-		env := make([]api.EnvVar, len(s.Environment))
-		for i, e := range s.Environment {
-			env[i].Name = e.Variable
-			env[i].Value = e.Value
-		}
-
-		safeName := sanitizeServiceName(s.Name)
-
-		rcSpec := api.ReplicationController{
-			ObjectMeta: api.ObjectMeta{
-				Name: safeName,
-			},
-			Spec: api.ReplicationControllerSpec{
-				Replicas: s.Deployment.Count,
-				Selector: map[string]string{"name": safeName},
-				Template: &api.PodTemplateSpec{
-					ObjectMeta: api.ObjectMeta{
-						Labels: map[string]string{"name": safeName},
-					},
-					Spec: api.PodSpec{
-						Containers: []api.Container{
-							{
-								Name:    safeName,
-								Image:   s.Source,
-								Command: []string{s.Command},
-								Ports:   ports,
-								Env:     env,
-							},
-						},
-					},
-				},
-			},
-		}
-
+		rcSpec := replicationControllerSpecFromService(*s)
 		rc, err := DefaultExecutor.CreateReplicationController(rcSpec)
 		if err != nil {
 			if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonAlreadyExists {
@@ -166,4 +126,47 @@ func statusFromReplicationController(rc api.ReplicationController) string {
 		return "running"
 	}
 	return "unknown"
+}
+
+func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationController {
+	ports := make([]api.Port, len(s.Ports))
+	for i, p := range s.Ports {
+		ports[i].HostPort = int(p.HostPort)
+		ports[i].ContainerPort = int(p.ContainerPort)
+		ports[i].Protocol = api.Protocol(p.Protocol)
+	}
+
+	env := make([]api.EnvVar, len(s.Environment))
+	for i, e := range s.Environment {
+		env[i].Name = e.Variable
+		env[i].Value = e.Value
+	}
+
+	safeName := sanitizeServiceName(s.Name)
+
+	return api.ReplicationController{
+		ObjectMeta: api.ObjectMeta{
+			Name: safeName,
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: s.Deployment.Count,
+			Selector: map[string]string{"name": safeName},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Labels: map[string]string{"name": safeName},
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:    safeName,
+							Image:   s.Source,
+							Command: []string{s.Command},
+							Ports:   ports,
+							Env:     env,
+						},
+					},
+				},
+			},
+		},
+	}
 }
