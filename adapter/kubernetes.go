@@ -12,6 +12,7 @@ type Executor interface {
 	GetReplicationControllers() ([]api.ReplicationController, error)
 	GetReplicationController(string) (api.ReplicationController, error)
 	CreateReplicationController(api.ReplicationController) (api.ReplicationController, error)
+	DeleteReplicationController(string) error
 }
 
 type KubernetesExecutor struct {
@@ -63,4 +64,28 @@ func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationCont
 	}
 
 	return *rc, nil
+}
+
+func (k KubernetesExecutor) DeleteReplicationController(id string) error {
+	// TODO hello duplication. Figure out client instantiation.
+	client, err := client.New(&client.Config{Host: k.APIEndpoint})
+	if err != nil {
+		return err
+	}
+
+	rc, err := k.GetReplicationController(id)
+	if err != nil {
+		return err
+	}
+
+	rc.Spec.Replicas = 0
+	if _, err := client.ReplicationControllers(namespace).Update(&rc); err != nil {
+		return err
+	}
+
+	if err := client.ReplicationControllers(namespace).Delete(id); err != nil {
+		return err
+	}
+
+	return nil
 }

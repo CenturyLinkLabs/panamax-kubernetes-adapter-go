@@ -17,7 +17,7 @@ var (
 
 func init() {
 	// TODO Need to instantiate with the correct connection info?
-	DefaultExecutor = NewKubernetesExecutor("http://107.170.250.226:8080")
+	DefaultExecutor = NewKubernetesExecutor("http://104.131.157.89:8080")
 }
 
 type KubernetesAdapter struct{}
@@ -110,6 +110,15 @@ func (a KubernetesAdapter) UpdateService(s *pmxadapter.Service) *pmxadapter.Erro
 }
 
 func (a KubernetesAdapter) DestroyService(id string) *pmxadapter.Error {
+	err := DefaultExecutor.DeleteReplicationController(id)
+	if err != nil {
+		if sErr, ok := err.(*errors.StatusError); ok && sErr.ErrStatus.Reason == api.StatusReasonNotFound {
+			return pmxadapter.NewError(http.StatusNotFound, err.Error())
+		}
+
+		return pmxadapter.NewError(http.StatusInternalServerError, err.Error())
+	}
+
 	return nil
 }
 

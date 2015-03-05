@@ -12,11 +12,13 @@ import (
 )
 
 type TestExecutor struct {
-	RCs              []api.ReplicationController
-	CreatedSpec      api.ReplicationController
-	CreationError    error
-	GetServicesError error
-	GetServiceError  error
+	RCs                []api.ReplicationController
+	CreatedSpec        api.ReplicationController
+	CreationError      error
+	GetServicesError   error
+	GetServiceError    error
+	DeletionError      error
+	DestroyedServiceID string
 }
 
 func (e *TestExecutor) GetReplicationControllers() ([]api.ReplicationController, error) {
@@ -50,6 +52,14 @@ func (e *TestExecutor) CreateReplicationController(spec api.ReplicationControlle
 
 	spec.Status.Replicas = 0
 	return spec, nil
+}
+
+func (e *TestExecutor) DeleteReplicationController(id string) error {
+	e.DestroyedServiceID = id
+	if e.DeletionError != nil {
+		return e.DeletionError
+	}
+	return nil
 }
 
 var (
@@ -178,6 +188,36 @@ func TestErroredConflictedCreateServices(t *testing.T) {
 	if assert.NotNil(t, pmxErr) {
 		assert.Equal(t, http.StatusConflict, pmxErr.Code)
 		assert.Equal(t, te.CreationError.Error(), pmxErr.Message)
+	}
+}
+
+func TestSuccessfulDestroyService(t *testing.T) {
+	setupRCs()
+	pmxErr := adapter.DestroyService("test-service")
+
+	assert.Nil(t, pmxErr)
+	assert.Equal(t, "test-service", te.DestroyedServiceID)
+}
+
+func TestErroredNotFoundDestroyService(t *testing.T) {
+	setup()
+	te.DeletionError = kerrors.NewNotFound("thing", "name")
+	pmxErr := adapter.DestroyService("test-service")
+
+	if assert.NotNil(t, pmxErr) {
+		assert.Equal(t, `thing "name" not found`, pmxErr.Message)
+		assert.Equal(t, http.StatusNotFound, pmxErr.Code)
+	}
+}
+
+func TestErroredDestroyService(t *testing.T) {
+	setup()
+	te.DeletionError = errors.New("test error")
+	pmxErr := adapter.DestroyService("test-service")
+
+	if assert.NotNil(t, pmxErr) {
+		assert.Equal(t, http.StatusInternalServerError, pmxErr.Code)
+		assert.Equal(t, "test error", pmxErr.Message)
 	}
 }
 
