@@ -105,10 +105,6 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 	return deployments, nil
 }
 
-func (a KubernetesAdapter) UpdateService(s *pmxadapter.Service) *pmxadapter.Error {
-	return nil
-}
-
 func (a KubernetesAdapter) DestroyService(id string) *pmxadapter.Error {
 	err := DefaultExecutor.DeleteReplicationController(id)
 	if err != nil {
