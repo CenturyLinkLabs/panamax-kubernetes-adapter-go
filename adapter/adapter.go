@@ -1,7 +1,9 @@
 package adapter
 
 import (
+	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -21,8 +23,16 @@ var (
 )
 
 func init() {
-	// TODO Need to instantiate with the correct connection info?
-	DefaultExecutor = NewKubernetesExecutor("http://104.131.157.89:8080")
+	e, err := NewKubernetesExecutor(
+		os.Getenv("KUBERNETES_MASTER"),
+		os.Getenv("KUBERNETES_USERNAME"),
+		os.Getenv("KUBERNETES_PASSWORD"),
+	)
+	if err != nil {
+		log.Fatalf("There was a problem with your Kubernetes connection: %v", err)
+	}
+
+	DefaultExecutor = e
 }
 
 type KubernetesAdapter struct{}

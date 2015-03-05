@@ -17,21 +17,21 @@ type Executor interface {
 }
 
 type KubernetesExecutor struct {
-	APIEndpoint string
+	client *client.Client
 }
 
-func NewKubernetesExecutor(url string) Executor {
-	return KubernetesExecutor{APIEndpoint: url}
+func NewKubernetesExecutor(url string, username string, password string) (Executor, error) {
+	config := client.Config{Host: url, Username: username, Password: password}
+	client, err := client.New(&config)
+	if err != nil {
+		return KubernetesExecutor{}, err
+	}
+
+	return KubernetesExecutor{client: client}, nil
 }
 
 func (k KubernetesExecutor) GetReplicationControllers() ([]api.ReplicationController, error) {
-	// TODO hello duplication. Figure out client instantiation.
-	client, err := client.New(&client.Config{Host: k.APIEndpoint})
-	if err != nil {
-		return []api.ReplicationController{}, err
-	}
-
-	rcList, err := client.ReplicationControllers(namespace).List(labels.Everything())
+	rcList, err := k.client.ReplicationControllers(namespace).List(labels.Everything())
 	if err != nil {
 		return []api.ReplicationController{}, err
 	}
@@ -40,13 +40,7 @@ func (k KubernetesExecutor) GetReplicationControllers() ([]api.ReplicationContro
 }
 
 func (k KubernetesExecutor) GetReplicationController(id string) (api.ReplicationController, error) {
-	// TODO hello duplication. Figure out client instantiation.
-	client, err := client.New(&client.Config{Host: k.APIEndpoint})
-	if err != nil {
-		return api.ReplicationController{}, err
-	}
-
-	rc, err := client.ReplicationControllers(namespace).Get(id)
+	rc, err := k.client.ReplicationControllers(namespace).Get(id)
 	if err != nil {
 		return api.ReplicationController{}, err
 	}
@@ -55,11 +49,7 @@ func (k KubernetesExecutor) GetReplicationController(id string) (api.Replication
 }
 
 func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
-	client, err := client.New(&client.Config{Host: k.APIEndpoint})
-	if err != nil {
-		return api.ReplicationController{}, err
-	}
-	rc, err := client.ReplicationControllers(namespace).Create(&spec)
+	rc, err := k.client.ReplicationControllers(namespace).Create(&spec)
 	if err != nil {
 		return api.ReplicationController{}, err
 	}
@@ -68,23 +58,17 @@ func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationCont
 }
 
 func (k KubernetesExecutor) DeleteReplicationController(id string) error {
-	// TODO hello duplication. Figure out client instantiation.
-	client, err := client.New(&client.Config{Host: k.APIEndpoint})
-	if err != nil {
-		return err
-	}
-
 	rc, err := k.GetReplicationController(id)
 	if err != nil {
 		return err
 	}
 
 	rc.Spec.Replicas = 0
-	if _, err := client.ReplicationControllers(namespace).Update(&rc); err != nil {
+	if _, err := k.client.ReplicationControllers(namespace).Update(&rc); err != nil {
 		return err
 	}
 
-	if err := client.ReplicationControllers(namespace).Delete(id); err != nil {
+	if err := k.client.ReplicationControllers(namespace).Delete(id); err != nil {
 		return err
 	}
 
@@ -92,13 +76,7 @@ func (k KubernetesExecutor) DeleteReplicationController(id string) error {
 }
 
 func (k KubernetesExecutor) IsHealthy() bool {
-	// TODO hello duplication. Figure out client instantiation.
-	client, err := client.New(&client.Config{Host: k.APIEndpoint})
-	if err != nil {
-		return false
-	}
-
-	if _, err := client.Nodes().List(); err != nil {
+	if _, err := k.client.Nodes().List(); err != nil {
 		return false
 	}
 
