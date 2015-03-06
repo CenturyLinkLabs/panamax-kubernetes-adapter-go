@@ -162,26 +162,6 @@ func TestSuccessfulCreateServices(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
-	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
-	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
-	cs := te.CreatedSpec.Spec.Template.Spec.Containers
-	if assert.Len(t, cs, 1) {
-		c := cs[0]
-		assert.Equal(t, "test-service", c.Name)
-		assert.Equal(t, "redis", c.Image)
-		if assert.Len(t, c.Command, 1) {
-			assert.Equal(t, "redis-server", c.Command[0])
-		}
-		if assert.Len(t, c.Env, 1) {
-			assert.Equal(t, "VAR_NAME", c.Env[0].Name)
-			assert.Equal(t, "Var Value", c.Env[0].Value)
-		}
-		if assert.Len(t, c.Ports, 1) {
-			assert.Equal(t, 31981, c.Ports[0].HostPort)
-			assert.Equal(t, 12345, c.Ports[0].ContainerPort)
-			assert.Equal(t, "TCP", c.Ports[0].Protocol)
-		}
-	}
 	if assert.Len(t, sd, 1) {
 		assert.Equal(t, "test-service", sd[0].ID)
 		assert.Equal(t, "pending", sd[0].ActualState)
@@ -207,6 +187,34 @@ func TestErroredConflictedCreateServices(t *testing.T) {
 	if assert.Error(t, pmxErr) && assert.True(t, ok) {
 		assert.Equal(t, te.CreationError.Error(), pmxErr.Message)
 		assert.Equal(t, http.StatusConflict, pmxErr.Code)
+	}
+}
+
+func TestReplicationControllerFromService(t *testing.T) {
+	servicesSetup()
+	spec := replicationControllerSpecFromService(*services[0])
+
+	assert.Equal(t, 1, spec.Spec.Replicas)
+	cs := spec.Spec.Template.Spec.Containers
+	if assert.Len(t, cs, 1) {
+		c := cs[0]
+		assert.Equal(t, "test-service", cs[0].Name)
+		assert.Equal(t, "redis", c.Image)
+
+		if assert.Len(t, c.Command, 1) {
+			assert.Equal(t, "redis-server", c.Command[0])
+		}
+
+		if assert.Len(t, c.Env, 1) {
+			assert.Equal(t, "VAR_NAME", c.Env[0].Name)
+			assert.Equal(t, "Var Value", c.Env[0].Value)
+		}
+
+		if assert.Len(t, c.Ports, 1) {
+			assert.Equal(t, 31981, c.Ports[0].HostPort)
+			assert.Equal(t, 12345, c.Ports[0].ContainerPort)
+			assert.Equal(t, "TCP", c.Ports[0].Protocol)
+		}
 	}
 }
 
