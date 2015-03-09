@@ -147,10 +147,10 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: s.Deployment.Count,
-			Selector: map[string]string{"name": safeName},
+			Selector: map[string]string{"service-name": safeName},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Labels: map[string]string{"name": safeName},
+					Labels: map[string]string{"service-name": safeName},
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{

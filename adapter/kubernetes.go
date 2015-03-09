@@ -1,12 +1,17 @@
 package adapter
 
 import (
+	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
 )
 
-const namespace = "default"
+const (
+	namespace          = "default"
+	multiplePortsError = "multiple ports from a single container is not currently supported"
+)
 
 type Executor interface {
 	GetReplicationControllers() ([]api.ReplicationController, error)
@@ -49,29 +54,77 @@ func (k KubernetesExecutor) GetReplicationController(id string) (api.Replication
 }
 
 func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
+	// Once K8s allows multiple ports per service, we can lift the restriction on
+	// a single port and the rest of this code (creation and deletion) ought to
+	// work fine because it's already looping through ports and using labels to
+	// determine what to delete.
+	ports := portsFromReplicationController(spec)
+	if len(ports) > 1 {
+		return api.ReplicationController{}, pmxadapter.NewAlreadyExistsError(multiplePortsError)
+	}
+
 	rc, err := k.client.ReplicationControllers(namespace).Create(&spec)
 	if err != nil {
 		return api.ReplicationController{}, err
+	}
+
+	rcName := spec.ObjectMeta.Name
+	for _, p := range ports {
+		serviceName := rcName
+		serviceSpec := api.Service{
+			ObjectMeta: api.ObjectMeta{
+				Name:   serviceName,
+				Labels: map[string]string{"service-name": rcName},
+			},
+			Spec: api.ServiceSpec{
+				Port:          p.HostPort,
+				Protocol:      p.Protocol,
+				ContainerPort: util.NewIntOrStringFromInt(p.ContainerPort),
+				Selector:      map[string]string{"service-name": rcName},
+			},
+		}
+		_, err := k.client.Services(namespace).Create(&serviceSpec)
+		if err != nil {
+			return *rc, err
+		}
 	}
 
 	return *rc, nil
 }
 
 func (k KubernetesExecutor) DeleteReplicationController(id string) error {
+	// Maybe find the desired ReplicationController
 	rc, err := k.GetReplicationController(id)
 	if err != nil {
 		return err
 	}
 
+	// Maybe find Services labeled for that ReplicationController
+	forService := labels.OneTermEqualSelector("service-name", rc.ObjectMeta.Name)
+	sl, err := k.client.Services(namespace).List(forService)
+	if err != nil {
+		return err
+	}
+
+	// Delete all found Services
+	for _, s := range sl.Items {
+		if err := k.client.Services(namespace).Delete(s.ObjectMeta.Name); err != nil {
+			return err
+		}
+	}
+
+	// Scale down the ReplicationController, deleting Pods
 	rc.Spec.Replicas = 0
 	if _, err := k.client.ReplicationControllers(namespace).Update(&rc); err != nil {
 		return err
 	}
 
+	// Delete the ReplicationController
 	if err := k.client.ReplicationControllers(namespace).Delete(id); err != nil {
 		return err
 	}
 
+	// Profit?
 	return nil
 }
 
@@ -81,4 +134,16 @@ func (k KubernetesExecutor) IsHealthy() bool {
 	}
 
 	return true
+}
+
+func portsFromReplicationController(rc api.ReplicationController) []api.Port {
+	ports := make([]api.Port, 0)
+
+	for _, c := range rc.Spec.Template.Spec.Containers {
+		for _, p := range c.Ports {
+			ports = append(ports, p)
+		}
+	}
+
+	return ports
 }

@@ -194,11 +194,16 @@ func TestReplicationControllerFromService(t *testing.T) {
 	servicesSetup()
 	spec := replicationControllerSpecFromService(*services[0])
 
+	assert.Equal(t, "test-service", spec.ObjectMeta.Name)
 	assert.Equal(t, 1, spec.Spec.Replicas)
-	cs := spec.Spec.Template.Spec.Containers
-	if assert.Len(t, cs, 1) {
-		c := cs[0]
-		assert.Equal(t, "test-service", cs[0].Name)
+
+	podTemplate := spec.Spec.Template
+	assert.Equal(t, "test-service", podTemplate.ObjectMeta.Labels["service-name"])
+
+	containers := podTemplate.Spec.Containers
+	if assert.Len(t, containers, 1) {
+		c := containers[0]
+		assert.Equal(t, "test-service", c.Name)
 		assert.Equal(t, "redis", c.Image)
 
 		if assert.Len(t, c.Command, 1) {
