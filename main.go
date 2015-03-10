@@ -1,7 +1,7 @@
-package main // import "github.com/CenturyLinkLabs/panamax-kubernetes-adapter"
+package main // import "github.com/CenturyLinkLabs/panamax-kubernetes-adapter-go"
 
 import (
-	"github.com/CenturyLinkLabs/panamax-kubernetes-adapter/adapter"
+	"github.com/CenturyLinkLabs/panamax-kubernetes-adapter-go/adapter"
 	"github.com/CenturyLinkLabs/pmxadapter"
 )
 
