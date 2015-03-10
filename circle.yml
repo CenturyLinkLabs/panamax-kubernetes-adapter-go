@@ -1,0 +1,27 @@
+machine:
+  services:
+    - docker
+
+general:
+  artifacts:
+    - "panamax-kubernetes-adapter-go" # the built binary
+
+dependencies:
+  override:
+    # This is a no-op to get it to not try and build our Go app (and possibly
+    # fail due to Godep stuff).
+    - "true"
+
+test:
+  override:
+    - docker run -v $(pwd):/src centurylink/golang-tester
+
+deployment:
+  hub:
+    branch: master
+    owner: CenturyLinkLabs
+    commands:
+      - docker run -v $(pwd):/src centurylink/golang-builder:latest
+      - docker build -t centurylink/panamax-kubernetes-adapter:qa .
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - docker push centurylink/panamax-kubernetes-adapter:qa
