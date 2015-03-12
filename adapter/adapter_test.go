@@ -223,6 +223,17 @@ func TestReplicationControllerFromService(t *testing.T) {
 	}
 }
 
+func TestNoCommandReplicationControllerFromService(t *testing.T) {
+	servicesSetup()
+	services[0].Command = ""
+	spec := replicationControllerSpecFromService(*services[0])
+
+	containers := spec.Spec.Template.Spec.Containers
+	if assert.Len(t, containers, 1) {
+		assert.Empty(t, containers[0].Command)
+	}
+}
+
 func TestSuccessfulDestroyService(t *testing.T) {
 	setupRCs()
 	err := adapter.DestroyService("test-service")

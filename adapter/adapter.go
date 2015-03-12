@@ -140,6 +140,10 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 	}
 
 	safeName := sanitizeServiceName(s.Name)
+	commands := make([]string, 0)
+	if s.Command != "" {
+		commands = append(commands, s.Command)
+	}
 
 	return api.ReplicationController{
 		ObjectMeta: api.ObjectMeta{
@@ -157,7 +161,7 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 						{
 							Name:    safeName,
 							Image:   s.Source,
-							Command: []string{s.Command},
+							Command: commands,
 							Ports:   ports,
 							Env:     env,
 						},
