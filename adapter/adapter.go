@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -191,49 +192,110 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 }
 
 func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error) {
-	// Once K8s allows multiple ports per service, we can lift the restriction on
-	// a single port. We can't do anything about it now because we need to mimic
-	// current Docker environment variables while satisfying K8s's requirement
-	// for unique service names.
-	for _, s := range services {
-		if len(s.Ports) > 1 {
-			return nil, pmxadapter.NewAlreadyExistsError(multiplePortsError)
-		}
+	if err := validateServicesPorts(services); err != nil {
+		return nil, err
 	}
 
-	// Look through all services
-	//  - appending Services for exposed ports
-	//  - appending Services for aliases, using exposed ports on target
-	//    - exploding if target has no exposed ports
+	if err := validateServicesAliases(services); err != nil {
+		return nil, err
+	}
+
+	servicesByName := map[string]pmxadapter.Service{}
+	for _, s := range services {
+		servicesByName[s.Name] = *s
+	}
 	kServices := make([]api.Service, 0)
+
+	// Create KServices by name for any configured ports.
 	for _, s := range services {
 		if len(s.Ports) == 0 {
 			continue
 		}
 
-		rcName := sanitizeServiceName(s.Name)
-		p := s.Ports[0]
-
-		ks := api.Service{
-			ObjectMeta: api.ObjectMeta{
-				Name:   rcName,
-				Labels: map[string]string{"service-name": rcName},
-			},
-			Spec: api.ServiceSpec{
-				// I'm unaware of any wildcard selector, we don't have a name for the
-				// overarching application being started, and I can't specifically
-				// target only certain RCs because we don't know if a Service exists
-				// solely to allow external access. Shrug.
-				Selector:      map[string]string{"panamax": "panamax"},
-				Port:          int(p.HostPort),
-				ContainerPort: util.NewIntOrStringFromInt(int(p.ContainerPort)),
-				Protocol:      api.Protocol(p.Protocol),
-				PublicIPs:     PublicIPs,
-			},
-		}
-
+		ks := kServiceByNameAndPort(
+			sanitizeServiceName(s.Name),
+			*s.Ports[0],
+		)
 		kServices = append(kServices, ks)
 	}
 
+	// Create KServices by alias for any links with aliases.
+	for _, s := range services {
+		for _, l := range s.Links {
+			if l.Alias == "" {
+				continue
+			}
+
+			toService, exists := servicesByName[l.Name]
+			if !exists {
+				return nil, fmt.Errorf("linking to non-existant service '%v'", l.Name)
+			}
+
+			if len(toService.Ports) == 0 {
+				return nil, fmt.Errorf("linked-to service '%v' exposes no ports", l.Name)
+			}
+
+			ks := kServiceByNameAndPort(
+				sanitizeServiceName(l.Alias),
+				*toService.Ports[0],
+			)
+			kServices = append(kServices, ks)
+		}
+	}
+
 	return kServices, nil
+}
+
+// Once K8s allows multiple ports per service, we can lift the restriction on
+// a single port. We can't do anything about it now because we need to mimic
+// current Docker environment variables while satisfying K8s's requirement
+// for unique service names.
+func validateServicesPorts(services []*pmxadapter.Service) error {
+	for _, s := range services {
+		if len(s.Ports) > 1 {
+			return pmxadapter.NewAlreadyExistsError(multiplePortsError)
+		}
+	}
+
+	return nil
+}
+
+// The same alias name to different services can't be supported.
+func validateServicesAliases(services []*pmxadapter.Service) error {
+	aliases := map[string]string{}
+	for _, s := range services {
+		for _, l := range s.Links {
+			if l.Alias == "" {
+				continue
+			}
+
+			if name, exists := aliases[l.Alias]; exists && name != l.Name {
+				return fmt.Errorf("multiple services with the same alias name '%v'", l.Alias)
+			}
+
+			aliases[l.Alias] = l.Name
+		}
+	}
+
+	return nil
+}
+
+func kServiceByNameAndPort(name string, p pmxadapter.Port) api.Service {
+	return api.Service{
+		ObjectMeta: api.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{"service-name": name},
+		},
+		Spec: api.ServiceSpec{
+			// I'm unaware of any wildcard selector, we don't have a name for the
+			// overarching application being started, and I can't specifically
+			// target only certain RCs because we don't know if a Service exists
+			// solely to allow external access. Shrug.
+			Selector:      map[string]string{"panamax": "panamax"},
+			Port:          int(p.HostPort),
+			ContainerPort: util.NewIntOrStringFromInt(int(p.ContainerPort)),
+			Protocol:      api.Protocol(p.Protocol),
+			PublicIPs:     PublicIPs,
+		},
+	}
 }

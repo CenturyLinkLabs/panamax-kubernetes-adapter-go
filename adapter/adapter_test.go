@@ -287,6 +287,29 @@ func TestSuccessfulPublicIPsKServicesFromServices(t *testing.T) {
 	PublicIPs = originalPublicIPs
 }
 
+func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	aliasing := pmxadapter.Service{
+		Name:   "Other Service",
+		Source: "example",
+		Links:  []*pmxadapter.Link{{Name: "Test Service", Alias: "Alt Name"}},
+	}
+	services = append(services, &aliasing)
+	kServices, err := kServicesFromServices(services)
+
+	assert.NoError(t, err)
+	if assert.Len(t, kServices, 2) {
+		def := kServices[0]
+		assert.Equal(t, "test-service", def.Name)
+		alias := kServices[1]
+		assert.Equal(t, "alt-name", alias.Name)
+
+		assert.Equal(t, def.Spec.ContainerPort, alias.Spec.ContainerPort)
+		assert.Equal(t, def.Spec.Port, alias.Spec.Port)
+		assert.Equal(t, def.Spec.Protocol, alias.Spec.Protocol)
+	}
+}
+
 func TestNoErrorPortlessServiceKServicesFromServices(t *testing.T) {
 	servicesSetup()
 	services[0].Ports = make([]*pmxadapter.Port, 0)
@@ -294,6 +317,69 @@ func TestNoErrorPortlessServiceKServicesFromServices(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Empty(t, kServices)
+}
+
+func TestSuccessfulLinkedButUnaliasedKServiceFromServices(t *testing.T) {
+	servicesSetup()
+	aliasing := pmxadapter.Service{
+		Name:   "Other Service",
+		Source: "example",
+		Links:  []*pmxadapter.Link{{Name: "Test Service"}},
+	}
+	services = append(services, &aliasing)
+	kServices, err := kServicesFromServices(services)
+
+	assert.NoError(t, err)
+	assert.Len(t, kServices, 1)
+}
+
+func TestErroredLinkedButNonexistantKServiceFromServices(t *testing.T) {
+	servicesSetup()
+	services := []*pmxadapter.Service{{
+		Name:   "Service",
+		Source: "example",
+		Links:  []*pmxadapter.Link{{Name: "Bad", Alias: "Foo"}},
+	}}
+	kServices, err := kServicesFromServices(services)
+
+	assert.Empty(t, kServices)
+	assert.EqualError(t, err, "linking to non-existant service 'Bad'")
+}
+
+func TestErroredNonExposedLinkKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	aliasing := pmxadapter.Service{
+		Name:   "Other Service",
+		Source: "example",
+		Links:  []*pmxadapter.Link{{Name: "Test Service", Alias: "Foo"}},
+	}
+	services = append(services, &aliasing)
+	services[0].Ports = make([]*pmxadapter.Port, 0)
+	kServices, err := kServicesFromServices(services)
+
+	assert.Empty(t, kServices)
+	assert.EqualError(t, err, "linked-to service 'Test Service' exposes no ports")
+}
+
+func TestErroredMismatchedAliasesKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	foo := pmxadapter.Service{
+		Name:   "A",
+		Source: "example",
+		Ports:  []*pmxadapter.Port{{HostPort: 1, ContainerPort: 1, Protocol: "TCP"}},
+		Links:  []*pmxadapter.Link{{Name: "Test Service", Alias: "Alt"}},
+	}
+	bar := pmxadapter.Service{
+		Name:   "B",
+		Source: "example",
+		Links:  []*pmxadapter.Link{{Name: "A", Alias: "Alt"}},
+	}
+	services = append(services, &foo)
+	services = append(services, &bar)
+	kServices, err := kServicesFromServices(services)
+
+	assert.Empty(t, kServices)
+	assert.EqualError(t, err, "multiple services with the same alias name 'Alt'")
 }
 
 func TestErroredMultiplePortsKServicesFromServices(t *testing.T) {
@@ -306,9 +392,6 @@ func TestErroredMultiplePortsKServicesFromServices(t *testing.T) {
 	assert.Empty(t, kServices)
 	assert.Contains(t, err.Error(), "multiple ports")
 }
-
-//func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {}
-//func TestErroredNonExposedLinkKServicesFromServices(t *testing.T) {}
 
 func TestSuccessfulDestroyService(t *testing.T) {
 	setupRCs()
