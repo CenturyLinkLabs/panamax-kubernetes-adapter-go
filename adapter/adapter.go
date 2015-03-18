@@ -192,13 +192,14 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 
 func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error) {
 	// Once K8s allows multiple ports per service, we can lift the restriction on
-	// a single port and the rest of this code (creation and deletion) ought to
-	// work fine because it's already looping through ports and using labels to
-	// determine what to delete.
-	//ports := portsFromReplicationController(spec)
-	//if len(ports) > 1 {
-	//  return api.ReplicationController{}, pmxadapter.NewAlreadyExistsError(multiplePortsError)
-	//}
+	// a single port. We can't do anything about it now because we need to mimic
+	// current Docker environment variables while satisfying K8s's requirement
+	// for unique service names.
+	for _, s := range services {
+		if len(s.Ports) > 1 {
+			return nil, pmxadapter.NewAlreadyExistsError(multiplePortsError)
+		}
+	}
 
 	// Look through all services
 	//  - appending Services for exposed ports
@@ -232,15 +233,3 @@ func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error
 
 	return kServices, nil
 }
-
-//func portsFromReplicationController(rc api.ReplicationController) []api.Port {
-//  ports := make([]api.Port, 0)
-
-//  for _, c := range rc.Spec.Template.Spec.Containers {
-//    for _, p := range c.Ports {
-//      ports = append(ports, p)
-//    }
-//  }
-
-//  return ports
-//}

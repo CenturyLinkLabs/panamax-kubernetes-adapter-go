@@ -287,8 +287,18 @@ func TestSuccessfulPublicIPsKServicesFromServices(t *testing.T) {
 	PublicIPs = originalPublicIPs
 }
 
+func TestErroredMultiplePortsKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	p := pmxadapter.Port{HostPort: 1, ContainerPort: 1, Protocol: "TCP"}
+	services[0].Ports = append(services[0].Ports, &p)
+
+	kServices, err := kServicesFromServices(services)
+
+	assert.Empty(t, kServices)
+	assert.Contains(t, err.Error(), "multiple ports")
+}
+
 //func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {}
-//func TestErroredMultiplePortsKServicesFromServices(t *testing.T) {}
 //func TestErroredNonExposedLinkKServicesFromServices(t *testing.T) {}
 
 func TestSuccessfulDestroyService(t *testing.T) {
