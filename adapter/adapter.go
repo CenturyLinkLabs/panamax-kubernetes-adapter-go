@@ -207,6 +207,10 @@ func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error
 	//    - exploding if target has no exposed ports
 	kServices := make([]api.Service, 0)
 	for _, s := range services {
+		if len(s.Ports) == 0 {
+			continue
+		}
+
 		rcName := sanitizeServiceName(s.Name)
 		p := s.Ports[0]
 
