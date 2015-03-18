@@ -9,6 +9,7 @@ import (
 	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
 )
 
 const (
@@ -69,6 +70,15 @@ func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, 
 
 func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmxadapter.ServiceDeployment, error) {
 	deployments := make([]pmxadapter.ServiceDeployment, len(services))
+	// TODO destroy all services (and RCs I guess!) if there is an error
+	// anywhere. Otherwise they'll be orphaned and screw up subsequent deploys.
+	kServices, err := kServicesFromServices(services)
+	if err != nil {
+		return nil, err
+	}
+	if err := DefaultExecutor.CreateKServices(kServices); err != nil {
+		return nil, err
+	}
 
 	for i, s := range services {
 		rcSpec := replicationControllerSpecFromService(*s)
@@ -154,7 +164,10 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 			Selector: map[string]string{"service-name": safeName},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Labels: map[string]string{"service-name": safeName},
+					Labels: map[string]string{
+						"service-name": safeName,
+						"panamax":      "panamax",
+					},
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -171,3 +184,57 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 		},
 	}
 }
+
+func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error) {
+	// Once K8s allows multiple ports per service, we can lift the restriction on
+	// a single port and the rest of this code (creation and deletion) ought to
+	// work fine because it's already looping through ports and using labels to
+	// determine what to delete.
+	//ports := portsFromReplicationController(spec)
+	//if len(ports) > 1 {
+	//  return api.ReplicationController{}, pmxadapter.NewAlreadyExistsError(multiplePortsError)
+	//}
+
+	// Look through all services
+	//  - appending Services for exposed ports
+	//  - appending Services for aliases, using exposed ports on target
+	//    - exploding if target has no exposed ports
+	kServices := make([]api.Service, 0)
+	for _, s := range services {
+		rcName := sanitizeServiceName(s.Name)
+		p := s.Ports[0]
+
+		ks := api.Service{
+			ObjectMeta: api.ObjectMeta{
+				Name:   rcName,
+				Labels: map[string]string{"service-name": rcName},
+			},
+			Spec: api.ServiceSpec{
+				Port:          int(p.HostPort),
+				ContainerPort: util.NewIntOrStringFromInt(int(p.ContainerPort)),
+				Protocol:      api.Protocol(p.Protocol),
+				// I'm unaware of any wildcard selector, we don't have a name for the
+				// overarching application being started, and I can't specifically
+				// target only certain RCs because we don't know if a Service exists
+				// solely to allow external access. Shrug.
+				Selector: map[string]string{"panamax": "panamax"},
+			},
+		}
+
+		kServices = append(kServices, ks)
+	}
+
+	return kServices, nil
+}
+
+//func portsFromReplicationController(rc api.ReplicationController) []api.Port {
+//  ports := make([]api.Port, 0)
+
+//  for _, c := range rc.Spec.Template.Spec.Containers {
+//    for _, p := range c.Ports {
+//      ports = append(ports, p)
+//    }
+//  }
+
+//  return ports
+//}

@@ -1,11 +1,9 @@
 package adapter
 
 import (
-	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/util"
 )
 
 const (
@@ -18,6 +16,7 @@ type Executor interface {
 	GetReplicationController(string) (api.ReplicationController, error)
 	CreateReplicationController(api.ReplicationController) (api.ReplicationController, error)
 	DeleteReplicationController(string) error
+	CreateKServices([]api.Service) error
 	IsHealthy() bool
 }
 
@@ -54,39 +53,9 @@ func (k KubernetesExecutor) GetReplicationController(id string) (api.Replication
 }
 
 func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
-	// Once K8s allows multiple ports per service, we can lift the restriction on
-	// a single port and the rest of this code (creation and deletion) ought to
-	// work fine because it's already looping through ports and using labels to
-	// determine what to delete.
-	ports := portsFromReplicationController(spec)
-	if len(ports) > 1 {
-		return api.ReplicationController{}, pmxadapter.NewAlreadyExistsError(multiplePortsError)
-	}
-
 	rc, err := k.client.ReplicationControllers(namespace).Create(&spec)
 	if err != nil {
 		return api.ReplicationController{}, err
-	}
-
-	rcName := spec.ObjectMeta.Name
-	for _, p := range ports {
-		serviceName := rcName
-		serviceSpec := api.Service{
-			ObjectMeta: api.ObjectMeta{
-				Name:   serviceName,
-				Labels: map[string]string{"service-name": rcName},
-			},
-			Spec: api.ServiceSpec{
-				Port:          p.HostPort,
-				Protocol:      p.Protocol,
-				ContainerPort: util.NewIntOrStringFromInt(p.ContainerPort),
-				Selector:      map[string]string{"service-name": rcName},
-			},
-		}
-		_, err := k.client.Services(namespace).Create(&serviceSpec)
-		if err != nil {
-			return *rc, err
-		}
 	}
 
 	return *rc, nil
@@ -128,22 +97,21 @@ func (k KubernetesExecutor) DeleteReplicationController(id string) error {
 	return nil
 }
 
+func (k KubernetesExecutor) CreateKServices(ks []api.Service) error {
+	for _, s := range ks {
+		_, err := k.client.Services(namespace).Create(&s)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (k KubernetesExecutor) IsHealthy() bool {
 	if _, err := k.client.Nodes().List(); err != nil {
 		return false
 	}
 
 	return true
-}
-
-func portsFromReplicationController(rc api.ReplicationController) []api.Port {
-	ports := make([]api.Port, 0)
-
-	for _, c := range rc.Spec.Template.Spec.Containers {
-		for _, p := range c.Ports {
-			ports = append(ports, p)
-		}
-	}
-
-	return ports
 }

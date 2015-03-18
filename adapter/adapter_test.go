@@ -12,14 +12,16 @@ import (
 )
 
 type TestExecutor struct {
-	RCs                []api.ReplicationController
-	CreatedSpec        api.ReplicationController
-	CreationError      error
-	GetServicesError   error
-	GetServiceError    error
-	DeletionError      error
-	DestroyedServiceID string
-	HealthCheckResult  bool
+	RCs                  []api.ReplicationController
+	KServices            []api.Service
+	CreatedSpec          api.ReplicationController
+	CreateRCError        error
+	CreateKServicesError error
+	GetServicesError     error
+	GetServiceError      error
+	DeletionError        error
+	DestroyedServiceID   string
+	HealthCheckResult    bool
 }
 
 func (e *TestExecutor) GetReplicationControllers() ([]api.ReplicationController, error) {
@@ -47,8 +49,8 @@ func (e *TestExecutor) GetReplicationController(id string) (api.ReplicationContr
 func (e *TestExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
 	e.CreatedSpec = spec
 
-	if e.CreationError != nil {
-		return api.ReplicationController{}, e.CreationError
+	if e.CreateRCError != nil {
+		return api.ReplicationController{}, e.CreateRCError
 	}
 
 	spec.Status.Replicas = 0
@@ -61,6 +63,11 @@ func (e *TestExecutor) DeleteReplicationController(id string) error {
 		return e.DeletionError
 	}
 	return nil
+}
+
+func (e *TestExecutor) CreateKServices(ks []api.Service) error {
+	e.KServices = ks
+	return e.CreateKServicesError
 }
 
 func (e *TestExecutor) IsHealthy() bool {
@@ -166,11 +173,23 @@ func TestSuccessfulCreateServices(t *testing.T) {
 		assert.Equal(t, "test-service", sd[0].ID)
 		assert.Equal(t, "pending", sd[0].ActualState)
 	}
+	if assert.Len(t, te.KServices, 1) {
+		assert.Equal(t, 31981, te.KServices[0].Spec.Port)
+	}
 }
 
-func TestErroredCreateServices(t *testing.T) {
+func TestErroredKServiceCreationGetServices(t *testing.T) {
 	servicesSetup()
-	te.CreationError = errors.New("test error")
+	te.CreateKServicesError = errors.New("test error")
+	sd, err := adapter.CreateServices(services)
+
+	assert.Len(t, sd, 0)
+	assert.EqualError(t, err, "test error")
+}
+
+func TestErroredRCCreationGetServices(t *testing.T) {
+	servicesSetup()
+	te.CreateRCError = errors.New("test error")
 	sd, err := adapter.CreateServices(services)
 
 	assert.Len(t, sd, 0)
@@ -179,13 +198,13 @@ func TestErroredCreateServices(t *testing.T) {
 
 func TestErroredConflictedCreateServices(t *testing.T) {
 	servicesSetup()
-	te.CreationError = kerrors.NewAlreadyExists("thing", "name")
+	te.CreateRCError = kerrors.NewAlreadyExists("thing", "name")
 	sd, err := adapter.CreateServices(services)
 
 	assert.Len(t, sd, 0)
 	pmxErr, ok := err.(*pmxadapter.Error)
 	if assert.Error(t, pmxErr) && assert.True(t, ok) {
-		assert.Equal(t, te.CreationError.Error(), pmxErr.Message)
+		assert.Equal(t, te.CreateRCError.Error(), pmxErr.Message)
 		assert.Equal(t, http.StatusConflict, pmxErr.Code)
 	}
 }
@@ -198,7 +217,9 @@ func TestReplicationControllerFromService(t *testing.T) {
 	assert.Equal(t, 1, spec.Spec.Replicas)
 
 	podTemplate := spec.Spec.Template
-	assert.Equal(t, "test-service", podTemplate.ObjectMeta.Labels["service-name"])
+	labels := podTemplate.ObjectMeta.Labels
+	assert.Equal(t, "test-service", labels["service-name"])
+	assert.Equal(t, "panamax", labels["panamax"])
 
 	containers := podTemplate.Spec.Containers
 	if assert.Len(t, containers, 1) {
@@ -233,6 +254,26 @@ func TestNoCommandReplicationControllerFromService(t *testing.T) {
 		assert.Empty(t, containers[0].Command)
 	}
 }
+
+func TestSuccessfulBasicKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	kServices, err := kServicesFromServices(services)
+
+	assert.NoError(t, err)
+	if assert.Len(t, kServices, 1) {
+		ks := kServices[0]
+		assert.Equal(t, "test-service", ks.ObjectMeta.Name)
+		assert.Equal(t, "test-service", ks.ObjectMeta.Labels["service-name"])
+		assert.Equal(t, 12345, ks.Spec.ContainerPort.IntVal)
+		assert.Equal(t, 31981, ks.Spec.Port)
+		assert.Equal(t, "TCP", ks.Spec.Protocol)
+		assert.Equal(t, map[string]string{"panamax": "panamax"}, ks.Spec.Selector)
+	}
+}
+
+//func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {}
+//func TestErroredMultiplePortsKServicesFromServices(t *testing.T) {}
+//func TestErroredNonExposedLinkKServicesFromServices(t *testing.T) {}
 
 func TestSuccessfulDestroyService(t *testing.T) {
 	setupRCs()
