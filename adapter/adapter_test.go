@@ -268,7 +268,23 @@ func TestSuccessfulBasicKServicesFromServices(t *testing.T) {
 		assert.Equal(t, 31981, ks.Spec.Port)
 		assert.Equal(t, "TCP", ks.Spec.Protocol)
 		assert.Equal(t, map[string]string{"panamax": "panamax"}, ks.Spec.Selector)
+		assert.Empty(t, ks.Spec.PublicIPs)
 	}
+}
+
+func TestSuccessfulPublicIPsKServicesFromServices(t *testing.T) {
+	servicesSetup()
+	originalPublicIPs := PublicIPs
+	PublicIPs = []string{"10.0.0.1"}
+	kServices, _ := kServicesFromServices(services)
+
+	if assert.Len(t, kServices, 1) {
+		if assert.Len(t, kServices[0].Spec.PublicIPs, 1) {
+			assert.Equal(t, "10.0.0.1", kServices[0].Spec.PublicIPs[0])
+		}
+	}
+
+	PublicIPs = originalPublicIPs
 }
 
 //func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {}

@@ -20,9 +20,14 @@ const (
 var (
 	DefaultExecutor       Executor
 	illegalNameCharacters = regexp.MustCompile(`[\W_]+`)
+	PublicIPs             []string
 )
 
 func init() {
+	if publicIP := os.Getenv("SERVICE_PUBLIC_IP"); publicIP != "" {
+		PublicIPs = []string{publicIP}
+	}
+
 	e, err := NewKubernetesExecutor(
 		os.Getenv("KUBERNETES_MASTER"),
 		os.Getenv("KUBERNETES_USERNAME"),
@@ -210,14 +215,15 @@ func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error
 				Labels: map[string]string{"service-name": rcName},
 			},
 			Spec: api.ServiceSpec{
-				Port:          int(p.HostPort),
-				ContainerPort: util.NewIntOrStringFromInt(int(p.ContainerPort)),
-				Protocol:      api.Protocol(p.Protocol),
 				// I'm unaware of any wildcard selector, we don't have a name for the
 				// overarching application being started, and I can't specifically
 				// target only certain RCs because we don't know if a Service exists
 				// solely to allow external access. Shrug.
-				Selector: map[string]string{"panamax": "panamax"},
+				Selector:      map[string]string{"panamax": "panamax"},
+				Port:          int(p.HostPort),
+				ContainerPort: util.NewIntOrStringFromInt(int(p.ContainerPort)),
+				Protocol:      api.Protocol(p.Protocol),
+				PublicIPs:     PublicIPs,
 			},
 		}
 
