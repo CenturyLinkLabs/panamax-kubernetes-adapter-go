@@ -432,11 +432,15 @@ func TestErroredDestroyService(t *testing.T) {
 }
 
 func TestSuccessfulGetMetadata(t *testing.T) {
+	origVersion := metadataVersion
+	metadataVersion = "3.9"
 	setup()
 	m := adapter.GetMetadata()
+	metadataVersion = origVersion
+
 	if assert.NotNil(t, m) {
 		assert.Equal(t, metadataType, m.Type)
-		assert.Equal(t, metadataVersion, m.Version)
+		assert.Equal(t, "3.9", m.Version)
 		assert.False(t, m.IsHealthy)
 	}
 

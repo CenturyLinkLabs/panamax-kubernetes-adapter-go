@@ -14,17 +14,19 @@ import (
 )
 
 const (
-	metadataType    = "Kubernetes"
-	metadataVersion = "0.1"
+	metadataType = "Kubernetes"
 )
 
 var (
+	metadataVersion       string
 	DefaultExecutor       Executor
 	illegalNameCharacters = regexp.MustCompile(`[\W_]+`)
 	PublicIPs             []string
 )
 
 func init() {
+	metadataVersion = os.Getenv("ADAPTER_VERSION")
+
 	if publicIP := os.Getenv("SERVICE_PUBLIC_IP"); publicIP != "" {
 		PublicIPs = []string{publicIP}
 	}
