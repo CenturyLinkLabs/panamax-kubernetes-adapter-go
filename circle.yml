@@ -21,7 +21,10 @@ deployment:
     branch: master
     owner: CenturyLinkLabs
     commands:
+      # Pushing to adapter-go until this is tested, then it will replace the
+      # existing repo on Docker. I can't just push a new tag on the existing
+      # because it's a trusted build.
       - docker run -v $(pwd):/src centurylink/golang-builder:latest
-      - docker build -t centurylink/panamax-kubernetes-adapter:qa .
+      - docker build -t centurylink/panamax-kubernetes-adapter-go:qa .
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - docker push centurylink/panamax-kubernetes-adapter:qa
+      - docker push centurylink/panamax-kubernetes-adapter-go:qa
