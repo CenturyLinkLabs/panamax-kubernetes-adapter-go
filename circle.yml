@@ -1,6 +1,13 @@
 machine:
   services:
     - docker
+  environment:
+    # Pushing to adapter-go until this is tested, then it will replace the
+    # existing repo on Docker. I can't just push a new tag on the existing
+    # because it's a trusted build.
+    IMAGE_NAME: centurylink/panamax-kubernetes-adapter-go
+    IMAGE_TAG: qa
+
 
 general:
   artifacts:
@@ -8,9 +15,8 @@ general:
 
 dependencies:
   override:
-    # This is a no-op to get it to not try and build our Go app (and possibly
-    # fail due to Godep stuff).
-    - "true"
+    - docker pull centurylink/golang-tester:latest
+    - docker pull centurylink/golang-builder:latest
 
 test:
   override:
@@ -21,10 +27,7 @@ deployment:
     branch: master
     owner: CenturyLinkLabs
     commands:
-      # Pushing to adapter-go until this is tested, then it will replace the
-      # existing repo on Docker. I can't just push a new tag on the existing
-      # because it's a trusted build.
       - docker run -v $(pwd):/src centurylink/golang-builder:latest
-      - docker build -t centurylink/panamax-kubernetes-adapter-go:qa .
+      - docker build -t $IMAGE_NAME:$IMAGE_TAG .
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - docker push centurylink/panamax-kubernetes-adapter-go:qa
+      - docker push $IMAGE_NAME:$IMAGE_TAG
