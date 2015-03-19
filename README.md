@@ -4,4 +4,6 @@
 
 # Panamax Kubernetes Adapter
 
+[![Circle CI](https://circleci.com/gh/CenturyLinkLabs/panamax-kubernetes-adapter-go/tree/master.svg?style=svg)](https://circleci.com/gh/CenturyLinkLabs/panamax-kubernetes-adapter-go/tree/master)
+
 The Kubernetes adapter in combination with the Panamax remote agent enables the deployment of a Panamax template to a Kubernetes cluster.
