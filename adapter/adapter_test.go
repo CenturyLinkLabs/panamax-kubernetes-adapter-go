@@ -169,6 +169,7 @@ func TestSuccessfulCreateServices(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, "test-service", te.CreatedSpec.ObjectMeta.Name)
+	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
 	if assert.Len(t, sd, 1) {
 		assert.Equal(t, "test-service", sd[0].ID)
 		assert.Equal(t, "pending", sd[0].ActualState)
@@ -176,6 +177,15 @@ func TestSuccessfulCreateServices(t *testing.T) {
 	if assert.Len(t, te.KServices, 1) {
 		assert.Equal(t, 31981, te.KServices[0].Spec.Port)
 	}
+}
+
+func TestSuccessfulSetMissingReplicasCreateServices(t *testing.T) {
+	servicesSetup()
+	services[0].Deployment.Count = 0
+	_, err := adapter.CreateServices(services)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, te.CreatedSpec.Spec.Replicas)
 }
 
 func TestErroredKServiceCreationGetServices(t *testing.T) {

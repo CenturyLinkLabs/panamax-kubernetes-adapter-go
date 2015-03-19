@@ -161,12 +161,20 @@ func replicationControllerSpecFromService(s pmxadapter.Service) api.ReplicationC
 		commands = append(commands, s.Command)
 	}
 
+	replicas := s.Deployment.Count
+	// The adapter seems to be in charge of adjusting missing replica count from
+	// the JSON. The UI doesn't allow selection of 0 replicas, so this shouldn't
+	// screw things up in the current state.
+	if replicas == 0 {
+		replicas = 1
+	}
+
 	return api.ReplicationController{
 		ObjectMeta: api.ObjectMeta{
 			Name: safeName,
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: s.Deployment.Count,
+			Replicas: replicas,
 			Selector: map[string]string{"service-name": safeName},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
