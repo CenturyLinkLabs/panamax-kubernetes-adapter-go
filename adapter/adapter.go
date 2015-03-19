@@ -138,7 +138,7 @@ func statusFromReplicationController(rc api.ReplicationController) string {
 	if actual < desired {
 		return "pending"
 	} else if desired == actual {
-		return "running"
+		return "scheduled"
 	}
 	return "unknown"
 }

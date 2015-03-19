@@ -467,7 +467,7 @@ func TestStatusFromReplicationController(t *testing.T) {
 	rc.Status.Replicas = 1
 	assert.Equal(t, "pending", statusFromReplicationController(rc))
 	rc.Status.Replicas = 2
-	assert.Equal(t, "running", statusFromReplicationController(rc))
+	assert.Equal(t, "scheduled", statusFromReplicationController(rc))
 	rc.Status.Replicas = 3
 	assert.Equal(t, "unknown", statusFromReplicationController(rc))
 }
