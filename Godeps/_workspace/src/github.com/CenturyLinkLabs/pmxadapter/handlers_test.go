@@ -58,12 +58,12 @@ func TestSuccessfulGetService(t *testing.T) {
 	assert.Equal(t, http.StatusOK, code)
 }
 
-//func TestSuccessfulCreateServices(t *testing.T) {
-//  req, _ := http.NewRequest("POST", "http://localhost", strings.NewReader("{}"))
-//  code, _ := createServices(testEncoder, newMockAdapter(201, ""), req)
+func TestSuccessfulCreateServices(t *testing.T) {
+	req, _ := http.NewRequest("POST", "http://localhost", strings.NewReader("[]"))
+	code, _ := createServices(testEncoder, newMockAdapter(201, ""), req)
 
-//  assert.Equal(t, http.StatusCreated, code)
-//}
+	assert.Equal(t, http.StatusCreated, code)
+}
 
 func TestErroredCreateServices(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://localhost", strings.NewReader("BAD JSON"))
@@ -118,13 +118,13 @@ func TestGetServiceNotFound(t *testing.T) {
 	assert.Equal(t, "Error(404): service not found", body)
 }
 
-//func TestCreateServicesError(t *testing.T) {
-//  req, _ := http.NewRequest("POST", "http://localhost", strings.NewReader("{}"))
-//  code, body := createServices(testEncoder, newMockAdapter(500, "internal error"), req)
+func TestCreateServicesError(t *testing.T) {
+	req, _ := http.NewRequest("POST", "http://localhost", strings.NewReader("[]"))
+	code, body := createServices(testEncoder, newMockAdapter(500, "internal error"), req)
 
-//  assert.Equal(t, http.StatusInternalServerError, code)
-//  assert.Equal(t, "internal error", body)
-//}
+	assert.Equal(t, http.StatusInternalServerError, code)
+	assert.Equal(t, "Error(500): internal error", body)
+}
 
 func TestDeleteServiceNotFound(t *testing.T) {
 	adapter := newMockAdapter(404, "service not found")
