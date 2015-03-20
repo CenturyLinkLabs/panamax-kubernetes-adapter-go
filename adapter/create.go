@@ -32,8 +32,13 @@ func (a KubernetesAdapter) CreateServices(services []*pmxadapter.Service) ([]pmx
 			return nil, err
 		}
 
+		status, err := statusFromReplicationController(rc)
+		if err != nil {
+			return nil, err
+		}
+
 		deployments[i].ID = rc.ObjectMeta.Name
-		deployments[i].ActualState = statusFromReplicationController(rc)
+		deployments[i].ActualState = status
 	}
 
 	return deployments, nil

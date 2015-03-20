@@ -8,15 +8,19 @@ import (
 	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	kerrors "github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/stretchr/testify/assert"
 )
 
 type TestExecutor struct {
 	RCs                  []api.ReplicationController
 	KServices            []api.Service
+	Pods                 []api.Pod
 	CreatedSpec          api.ReplicationController
 	CreateRCError        error
 	CreateKServicesError error
+	GotPodsSelector      labels.Selector
+	GetPodsError         error
 	GetServicesError     error
 	GetServiceError      error
 	DeletionError        error
@@ -44,6 +48,11 @@ func (e *TestExecutor) GetReplicationController(id string) (api.ReplicationContr
 	}
 
 	return api.ReplicationController{}, errors.New("Should never get here")
+}
+
+func (e *TestExecutor) GetPods(s labels.Selector) ([]api.Pod, error) {
+	e.GotPodsSelector = s
+	return e.Pods, e.GetPodsError
 }
 
 func (e *TestExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {
@@ -204,15 +213,53 @@ func TestSanitizeServiceName(t *testing.T) {
 	assert.Equal(t, "test-service", sanitizeServiceName("Test _ \n  Service"))
 }
 
-func TestStatusFromReplicationController(t *testing.T) {
+func TestPendingStatusFromReplicationController(t *testing.T) {
 	rc := api.ReplicationController{}
 	rc.Spec.Replicas = 2
-	rc.Status.Replicas = 0
-	assert.Equal(t, "pending", statusFromReplicationController(rc))
 	rc.Status.Replicas = 1
-	assert.Equal(t, "pending", statusFromReplicationController(rc))
-	rc.Status.Replicas = 2
-	assert.Equal(t, "scheduled", statusFromReplicationController(rc))
+	status, err := statusFromReplicationController(rc)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "pending", status)
+}
+
+func TestUnkonwnStatusFromReplicationController(t *testing.T) {
+	rc := api.ReplicationController{}
+	rc.Spec.Replicas = 2
 	rc.Status.Replicas = 3
-	assert.Equal(t, "unknown", statusFromReplicationController(rc))
+	status, err := statusFromReplicationController(rc)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "unknown", status)
+}
+
+func TestStartedStatusFromReplicationController(t *testing.T) {
+	rc := api.ReplicationController{}
+	rc.Spec.Replicas = 2
+	rc.Status.Replicas = 2
+	te.Pods = []api.Pod{
+		{Status: api.PodStatus{Phase: api.PodPending}},
+		{Status: api.PodStatus{Phase: api.PodPending}},
+	}
+
+	status, err := statusFromReplicationController(rc)
+	assert.NoError(t, err)
+	assert.Equal(t, "running 0/2", status)
+
+	te.Pods[0].Status.Phase = api.PodRunning
+	te.Pods[1].Status.Phase = api.PodRunning
+	status, err = statusFromReplicationController(rc)
+	assert.NoError(t, err)
+	assert.Equal(t, "running 2/2", status)
+}
+
+func TestErroredStatusFromReplicationController(t *testing.T) {
+	rc := api.ReplicationController{}
+	rc.Spec.Replicas = 2
+	rc.Status.Replicas = 2
+	te.GetPodsError = errors.New("test error")
+	status, err := statusFromReplicationController(rc)
+
+	assert.Empty(t, status)
+	assert.EqualError(t, err, "test error")
 }

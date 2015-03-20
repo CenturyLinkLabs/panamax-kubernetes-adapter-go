@@ -14,6 +14,7 @@ const (
 type Executor interface {
 	GetReplicationControllers() ([]api.ReplicationController, error)
 	GetReplicationController(string) (api.ReplicationController, error)
+	GetPods(labels.Selector) ([]api.Pod, error)
 	CreateReplicationController(api.ReplicationController) (api.ReplicationController, error)
 	DeleteReplicationController(string) error
 	CreateKServices([]api.Service) error
@@ -50,6 +51,11 @@ func (k KubernetesExecutor) GetReplicationController(id string) (api.Replication
 	}
 
 	return *rc, nil
+}
+
+func (k KubernetesExecutor) GetPods(s labels.Selector) ([]api.Pod, error) {
+	ps, err := k.client.Pods(namespace).List(s)
+	return ps.Items, err
 }
 
 func (k KubernetesExecutor) CreateReplicationController(spec api.ReplicationController) (api.ReplicationController, error) {

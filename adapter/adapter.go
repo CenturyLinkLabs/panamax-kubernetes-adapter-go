@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -8,6 +9,7 @@ import (
 	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api/errors"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 )
 
 const (
@@ -50,8 +52,13 @@ func (a KubernetesAdapter) GetServices() ([]pmxadapter.ServiceDeployment, error)
 
 	sds := make([]pmxadapter.ServiceDeployment, len(rcs))
 	for i, rc := range rcs {
+		status, err := statusFromReplicationController(rc)
+		if err != nil {
+			return []pmxadapter.ServiceDeployment{}, err
+		}
+
 		sds[i].ID = rc.ObjectMeta.Name
-		sds[i].ActualState = statusFromReplicationController(rc)
+		sds[i].ActualState = status
 	}
 	return sds, nil
 }
@@ -66,9 +73,13 @@ func (a KubernetesAdapter) GetService(id string) (pmxadapter.ServiceDeployment, 
 		return pmxadapter.ServiceDeployment{}, err
 	}
 
+	status, err := statusFromReplicationController(rc)
+	if err != nil {
+		return pmxadapter.ServiceDeployment{}, err
+	}
 	sd := pmxadapter.ServiceDeployment{
 		ID:          rc.ObjectMeta.Name,
-		ActualState: statusFromReplicationController(rc),
+		ActualState: status,
 	}
 	return sd, nil
 }
@@ -94,14 +105,27 @@ func (a KubernetesAdapter) GetMetadata() pmxadapter.Metadata {
 	}
 }
 
-func statusFromReplicationController(rc api.ReplicationController) string {
+func statusFromReplicationController(rc api.ReplicationController) (string, error) {
 	desired := rc.Spec.Replicas
 	actual := rc.Status.Replicas
 
 	if actual < desired {
-		return "pending"
+		return "pending", nil
 	} else if desired == actual {
-		return "scheduled"
+		selector := labels.OneTermEqualSelector("service-name", rc.ObjectMeta.Name)
+		pods, err := DefaultExecutor.GetPods(selector)
+		if err != nil {
+			return "", err
+		}
+		runningCount := 0
+		for _, p := range pods {
+			if p.Status.Phase == api.PodRunning {
+				runningCount++
+			}
+		}
+
+		return fmt.Sprintf("running %v/%v", runningCount, desired), nil
 	}
-	return "unknown"
+
+	return "unknown", nil
 }
