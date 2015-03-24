@@ -2,10 +2,7 @@ machine:
   services:
     - docker
   environment:
-    # Pushing to adapter-go until this is tested, then it will replace the
-    # existing repo on Docker. I can't just push a new tag on the existing
-    # because it's a trusted build.
-    IMAGE_NAME: centurylink/panamax-kubernetes-adapter-go
+    IMAGE_NAME: centurylink/panamax-kubernetes-adapter
     IMAGE_TAG: qa
 
 
