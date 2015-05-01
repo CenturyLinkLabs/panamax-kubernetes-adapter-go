@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/CenturyLinkLabs/pmxadapter"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
@@ -21,6 +22,7 @@ var (
 	DefaultExecutor       Executor
 	illegalNameCharacters = regexp.MustCompile(`[\W_]+`)
 	PublicIPs             []string
+	DeletionWaitTime      = 1 * time.Second
 )
 
 func init() {
@@ -93,6 +95,12 @@ func (a KubernetesAdapter) DestroyService(id string) error {
 
 		return err
 	}
+
+	// This is a timely (pun intended) hack to make sure that redeployment
+	// through the agent doesn't fail. The call above must return before the pods
+	// are actually deleted. Ideally I'd poll the list of resources until they're
+	// all really gone, but this also gets the job done.
+	time.Sleep(DeletionWaitTime)
 
 	return nil
 }
