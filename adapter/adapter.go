@@ -22,7 +22,7 @@ var (
 	DefaultExecutor       Executor
 	illegalNameCharacters = regexp.MustCompile(`[\W_]+`)
 	PublicIPs             []string
-	DeletionWaitTime      = 1 * time.Second
+	DeletionWaitTime      = 7 * time.Second
 )
 
 func init() {
