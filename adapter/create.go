@@ -123,8 +123,10 @@ func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error
 			continue
 		}
 
+		sanitizedName := sanitizeServiceName(s.Name)
 		ks := kServiceByNameAndPort(
-			sanitizeServiceName(s.Name),
+			sanitizedName,
+			sanitizedName,
 			*s.Ports[0],
 		)
 		kServices = append(kServices, ks)
@@ -148,6 +150,7 @@ func kServicesFromServices(services []*pmxadapter.Service) ([]api.Service, error
 
 			ks := kServiceByNameAndPort(
 				sanitizeServiceName(l.Alias),
+				sanitizeServiceName(toService.Name),
 				*toService.Ports[0],
 			)
 			kServices = append(kServices, ks)
@@ -191,11 +194,11 @@ func validateServicesAliases(services []*pmxadapter.Service) error {
 	return nil
 }
 
-func kServiceByNameAndPort(name string, p pmxadapter.Port) api.Service {
+func kServiceByNameAndPort(name string, toServiceName string, p pmxadapter.Port) api.Service {
 	return api.Service{
 		ObjectMeta: api.ObjectMeta{
 			Name:   name,
-			Labels: map[string]string{"service-name": name},
+			Labels: map[string]string{"service-name": toServiceName},
 		},
 		Spec: api.ServiceSpec{
 			// I'm unaware of any wildcard selector, we don't have a name for the

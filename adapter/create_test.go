@@ -174,8 +174,10 @@ func TestSuccessfulAliasesKServicesFromServices(t *testing.T) {
 	if assert.Len(t, kServices, 2) {
 		def := kServices[0]
 		assert.Equal(t, "test-service", def.Name)
+		assert.Equal(t, "test-service", def.ObjectMeta.Labels["service-name"])
 		alias := kServices[1]
 		assert.Equal(t, "alt-name", alias.Name)
+		assert.Equal(t, "test-service", alias.ObjectMeta.Labels["service-name"])
 
 		assert.Equal(t, def.Spec.ContainerPort, alias.Spec.ContainerPort)
 		assert.Equal(t, def.Spec.Port, alias.Spec.Port)

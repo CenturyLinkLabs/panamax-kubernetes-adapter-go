@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	DeletionWaitTime = 0
-}
-
 type TestExecutor struct {
 	RCs                  []api.ReplicationController
 	KServices            []api.Service
