@@ -3,6 +3,10 @@
 [Panamax](http://panamax.io) is a containerized app creator with an open-source app marketplace hosted in GitHub. Panamax provides a friendly interface for users of Docker, Fleet & CoreOS. With Panamax, you can easily create, share, and deploy any containerized app no matter how complex it might be. Learn more at [Panamax.io](http://panamax.io) or browse the [Panamax Wiki](https://github.com/CenturyLinkLabs/panamax-ui/wiki).
 
 # Panamax Kubernetes Adapter
+## NOTE
+
+This repo is no longer being maintained. Users are welcome to fork it, but we make no warranty of its functionality.
+
 
 [![](https://badge.imagelayers.io/centurylink/panamax-kubernetes-adapter.svg)](https://imagelayers.io/?images=centurylink/panamax-kubernetes-adapter:latest 'Get your own badge on imagelayers.io')
 
